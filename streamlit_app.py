@@ -55,12 +55,13 @@ st.markdown("""
     .blink { animation: blinker 1.5s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
     @keyframes blinker { 50% { opacity: 0.1; } }
     
-    /* Paper Styling */
+    /* Paper Styling Corrigido */
     .paper-box { background: #fdfdfd; color: #111; padding: 50px; border-radius: 8px; font-family: "Times New Roman", serif; }
     .paper-title { font-size: 24px; text-align: center; font-weight: bold; margin-bottom: 5px; }
     .paper-authors { text-align: center; font-style: italic; margin-bottom: 20px; font-size: 16px; }
     .paper-abstract-title { font-weight: bold; text-align: center; text-transform: uppercase; font-size: 14px; margin-bottom: 10px; }
-    .paper-text { text-align: justify; line-height: 1.6; font-size: 15px; }
+    .paper-text { text-align: justify; line-height: 1.6; font-size: 15px; margin-bottom: 15px; }
+    .paper-list { font-size: 15px; line-height: 1.6; text-align: justify; }
     </style>
     """, unsafe_allow_html=True)
 
@@ -75,13 +76,11 @@ except Exception:
     st.stop()
 
 # --- ESTADO PERSISTENTE (THRESHOLDS) ---
-# Em vez de session_state que reseta no rerun local, usamos uma cache persistente
 @st.cache_data
 def get_thresholds():
     return {
         "clim_fresco": 13000, "clim_maduro": 17000, 
-        "nclim_firme": 13000, "nclim_risco": 16000,
-        "camera_mode": "Mock (Simulação)"
+        "nclim_firme": 13000, "nclim_risco": 16000
     }
 
 thresholds = get_thresholds()
@@ -113,17 +112,24 @@ def processar_decisao(classe, voc):
 
 df = fetch_data()
 
-# --- HEARTBEAT ---
+# --- HEARTBEAT & STATUS PILLS ---
 nicla_status = "OFFLINE"; nicla_color = "#ff4b4b"; nicla_class = ""
-if not df.empty and '_time' in df.columns:
-    last_time = df.iloc[-1]['_time']
-    segundos = (datetime.now(timezone.utc) - last_time).total_seconds()
-    if segundos < 20: nicla_status = "ONLINE (BLE)"; nicla_color = "#00ffcc"; nicla_class = "blink"
-    elif segundos < 120: nicla_status = "LATÊNCIA ALTA"; nicla_color = "#ffcc00"
+cam_status = "OFFLINE"; cam_color = "#ff4b4b"; cam_class = ""
 
-if thresholds["camera_mode"] == "Real OV7675": cam_color = "#00ffcc"; cam_status = "ONLINE (OV7675)"; cam_class = "blink"
-elif thresholds["camera_mode"] == "Mock (Simulação)": cam_color = "#ffcc00"; cam_status = "MOCK SIMULATOR"; cam_class = "blink"
-else: cam_color = "#ff4b4b"; cam_status = "DESCONECTADA"; cam_class = ""
+if not df.empty and '_time' in df.columns:
+    latest = df.iloc[-1]
+    last_time = latest['_time']
+    segundos = (datetime.now(timezone.utc) - last_time).total_seconds()
+    
+    # Verifica Nicla Sense ME (Sensor de Gás)
+    if 'voc_gas' in latest and pd.notna(latest['voc_gas']):
+        if segundos < 20: nicla_status = "ONLINE (BLE)"; nicla_color = "#00ffcc"; nicla_class = "blink"
+        elif segundos < 120: nicla_status = "LATÊNCIA ALTA"; nicla_color = "#ffcc00"
+    
+    # Verifica Arduino 33 BLE Sense (Visão IA)
+    if 'classe_dominante' in latest and str(latest['classe_dominante']) != "Desconhecido" and str(latest['classe_dominante']) != "nan":
+        if segundos < 20: cam_status = "ONLINE (BLE)"; cam_color = "#00ffcc"; cam_class = "blink"
+        elif segundos < 120: cam_status = "LATÊNCIA ALTA"; cam_color = "#ffcc00"
 
 # --- CABEÇALHO ---
 col_logo, col_title = st.columns([1, 9])
@@ -146,12 +152,12 @@ tab_dash, tab_admin, tab_paper = st.tabs(["📊 DASHBOARD TELEMETRIA", "⚙️ C
 with tab_dash:
     if not df.empty and nicla_status != "OFFLINE":
         latest = df.iloc[-1]
-        voc = float(latest['voc_gas']) if 'voc_gas' in latest else 0.0
-        fruta = str(latest['classe_dominante']) if 'classe_dominante' in latest else 'Desconhecido'
-        conf = float(latest['confianca']) if 'confianca' in latest else 0.0
-        temp = float(latest['temp']) if 'temp' in latest else 0.0
-        hum = float(latest['hum']) if 'hum' in latest else 0.0
-        hpa = float(latest['hPa']) if 'hPa' in latest else 0.0
+        voc = float(latest['voc_gas']) if 'voc_gas' in latest and pd.notna(latest['voc_gas']) else 0.0
+        fruta = str(latest['classe_dominante']) if 'classe_dominante' in latest and pd.notna(latest['classe_dominante']) else 'Desconhecido'
+        conf = float(latest['confianca']) if 'confianca' in latest and pd.notna(latest['confianca']) else 0.0
+        temp = float(latest['temp']) if 'temp' in latest and pd.notna(latest['temp']) else 0.0
+        hum = float(latest['hum']) if 'hum' in latest and pd.notna(latest['hum']) else 0.0
+        hpa = float(latest['hPa']) if 'hPa' in latest and pd.notna(latest['hPa']) else 0.0
         
         estado, cor, acao = processar_decisao(fruta, voc)
 
@@ -166,7 +172,7 @@ with tab_dash:
 
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("ÍNDICE VOC", f"{voc/1000:.1f} kΩ")
-        c2.metric("CONFIANÇA (IA)", f"{conf:.1f}%")
+        c2.metric("CONFIANÇA (IA)", f"{conf*100 if conf <= 1 else conf:.1f}%") # Ajuste caso a confiança venha como 0.85 em vez de 85
         c3.metric("TEMPERATURA", f"{temp:.1f} ºC")
         c4.metric("HUMIDADE", f"{hum:.1f}%")
         c5.metric("PRESSÃO ATM.", f"{hpa:.1f} hPa")
@@ -185,7 +191,7 @@ with tab_dash:
         with col_r:
             st.markdown("<h3 style='font-size: 1.2rem; color: #ffffff;'>🕸️ Assinatura Ambiental</h3>", unsafe_allow_html=True)
             radar_data = pd.DataFrame(dict(
-                r=[temp * 3, hum, (hpa - 900) if hpa > 900 else 0, (voc / 200) if voc > 0 else 0, conf],
+                r=[temp * 3, hum, (hpa - 900) if hpa > 900 else 0, (voc / 200) if voc > 0 else 0, conf * 100 if conf <= 1 else conf],
                 theta=['Temp (Norm)', 'Hum (%)', 'Pressão (Rel)', 'VOC (Norm)', 'IA Conf (%)']
             ))
             fig_radar = px.line_polar(radar_data, r='r', theta='theta', line_close=True, template="plotly_dark")
@@ -203,9 +209,7 @@ with tab_admin:
     st.header("⚙️ Calibração de Limiares")
     
     with st.form("calibration_form"):
-        st.markdown("### Configuração do Sensor Ótico")
-        novo_modo = st.radio("Câmara:", ["Real OV7675", "Mock (Simulação)", "Desconectada"], index=["Real OV7675", "Mock (Simulação)", "Desconectada"].index(thresholds["camera_mode"]))
-        
+        st.markdown("<p style='color: #a0a5b5; font-family: Inter;'>Ajuste dinâmico dos parâmetros de inferência baseados na resposta do sensor semicondutor (MOS).</p>", unsafe_allow_html=True)
         st.divider()
         col_a, col_b = st.columns(2)
         with col_a:
@@ -219,41 +223,30 @@ with tab_admin:
             
         submitted = st.form_submit_button("Guardar Calibração")
         if submitted:
-            # Atualiza a cache com os novos valores. Não os perde no rerun!
             get_thresholds.clear()
-            def get_thresholds(): return {"clim_fresco": clim_f, "clim_maduro": clim_m, "nclim_firme": nclim_f, "nclim_risco": nclim_r, "camera_mode": novo_modo}
+            def get_thresholds(): return {"clim_fresco": clim_f, "clim_maduro": clim_m, "nclim_firme": nclim_f, "nclim_risco": nclim_r}
             thresholds = get_thresholds()
             st.success("Configurações atualizadas!")
 
 with tab_paper:
-    st.markdown("""
-        <div class="paper-box">
-            <div class="paper-title">RipeRadar: Multimodal Edge Fusion for Real-Time Fruit Spoilage Detection</div>
-            <div class="paper-authors">Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães<br>
-            Department of Informatics, University of Minho, Braga, Portugal</div>
-            
-            <div class="paper-abstract-title">Abstract</div>
-            <p class="paper-text">
-                A degradação da qualidade hortofrutícola durante a cadeia de abastecimento e no retalho representa um desafio logístico e económico significativo, contribuindo para elevados índices de desperdício alimentar. Para superar as limitações de infraestruturas centralizadas, propomos o <b>RipeRadar</b>, uma arquitetura <i>Internet of Things (IoT)</i> descentralizada para monitorização multimodal.
-            </p>
-            <p class="paper-text">
-                O RipeRadar transpõe o processamento analítico para a <i>Edge</i> da rede através de modelos <i>Tiny Machine Learning (TinyML)</i> executados diretamente em microcontroladores. A inovação central reside numa estratégia de <b>Late Fusion</b> (Decision-Level Fusion) que correlaciona inferências visuais de uma rede neuronal (via OV7675 no Arduino Nano 33 BLE) com leituras contínuas de compostos orgânicos voláteis (VOCs) extraídas do sensor BME688 (Arduino Nicla Sense ME).
-            </p>
-            <p class="paper-text">
-                A orquestração assíncrona é mediada via Bluetooth Low Energy (BLE) por um <i>Edge Gateway</i> (Raspberry Pi 5), culminando nesta plataforma analítica baseada em InfluxDB. Este ecossistema garante autonomia operacional, latência residual e mitigação de falsos positivos face a ambiguidades visuais no retalho inteligente.
-            </p>
-            
-            <hr style="margin: 30px 0; border: 1px solid #ccc;">
-            
-            <h3 style="font-size: 18px; margin-bottom: 10px;">System Architecture</h3>
-            <ul style="font-size: 15px; line-height: 1.6; text-align: justify;">
-                <li><b>Camada de Perceção (Periphery):</b> Arduino Nano 33 BLE (Visão / CNN) e Arduino Nicla Sense ME (Olfação Digital / BME688).</li>
-                <li><b>Camada de Comunicação:</b> Bluetooth Low Energy (BLE) para aquisição de dados do sensor olfativo.</li>
-                <li><b>Camada de Processamento (Edge Gateway):</b> Raspberry Pi 5 atuando como agregador e ponte para a Cloud.</li>
-                <li><b>Camada de Aplicação:</b> Base de dados temporal (InfluxDB) e interface analítica em tempo real (Streamlit).</li>
-            </ul>
-        </div>
-    """, unsafe_allow_html=True)
+    # A MAGIA ESTÁ AQUI: Sem espaços em branco no início das linhas de HTML para evitar que o Markdown o transforme em bloco de código!
+    html_paper = """<div class="paper-box">
+<div class="paper-title">RipeRadar: Multimodal Edge Fusion for Real-Time Fruit Spoilage Detection</div>
+<div class="paper-authors">Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães<br>Department of Informatics, University of Minho, Braga, Portugal</div>
+<div class="paper-abstract-title">Abstract</div>
+<p class="paper-text">A degradação da qualidade hortofrutícola durante a cadeia de abastecimento e no retalho representa um desafio logístico e económico significativo, contribuindo para elevados índices de desperdício alimentar. Para superar as limitações de infraestruturas centralizadas, propomos o <b>RipeRadar</b>, uma arquitetura <i>Internet of Things (IoT)</i> descentralizada para monitorização multimodal.</p>
+<p class="paper-text">O RipeRadar transpõe o processamento analítico para a <i>Edge</i> da rede através de modelos <i>Tiny Machine Learning (TinyML)</i> executados diretamente em microcontroladores. A inovação central reside numa estratégia de <b>Late Fusion</b> (Decision-Level Fusion) que correlaciona inferências visuais de uma rede neuronal (via OV7675 no Arduino Nano 33 BLE) com leituras contínuas de compostos orgânicos voláteis (VOCs) extraídas do sensor BME688 (Arduino Nicla Sense ME).</p>
+<p class="paper-text">A orquestração assíncrona é mediada via Bluetooth Low Energy (BLE) por um <i>Edge Gateway</i> (Raspberry Pi 5), culminando nesta plataforma analítica baseada em InfluxDB. Este ecossistema garante autonomia operacional, latência residual e mitigação de falsos positivos face a ambiguidades visuais no retalho inteligente.</p>
+<hr style="margin: 30px 0; border: 1px solid #ccc;">
+<h3 style="font-size: 18px; margin-bottom: 10px; color: #111;">System Architecture</h3>
+<ul class="paper-list">
+<li><b>Camada de Perceção (Periphery):</b> Arduino Nano 33 BLE (Visão / CNN) e Arduino Nicla Sense ME (Olfação Digital / BME688).</li>
+<li><b>Camada de Comunicação:</b> Bluetooth Low Energy (BLE) para aquisição de dados locais de forma descentralizada.</li>
+<li><b>Camada de Processamento (Edge Gateway):</b> Raspberry Pi 5 atuando como agregador e ponte para a Cloud.</li>
+<li><b>Camada de Aplicação:</b> Base de dados temporal (InfluxDB Cloud) e interface analítica em tempo real (Streamlit).</li>
+</ul>
+</div>"""
+    st.markdown(html_paper, unsafe_allow_html=True)
 
 # Loop de refresh que não quebra formulários
 time.sleep(5)
