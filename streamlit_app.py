@@ -172,13 +172,13 @@ with tab_dash:
     if not df.empty:
         latest = df.iloc[-1]
         
-        # Extrair variáveis do InfluxDB (ajustado para os nomes do mock_gateway.py)
-        voc = float(latest.get('voc_gas', 0))
-        fruta = str(latest.get('classe_dominante', 'Desconhecido'))
-        conf = float(latest.get('confianca', 0))
-        temp = float(latest.get('temp', 0))
-        hum = float(latest.get('hum', 0))
-        hpa = float(latest.get('hPa', 0))
+        # Extração Robusta (Evita KeyErrors se a DB falhar o envio de alguma métrica num determinado segundo)
+        voc = float(latest['voc_gas']) if 'voc_gas' in latest else 0.0
+        fruta = str(latest['classe_dominante']) if 'classe_dominante' in latest else 'Desconhecido'
+        conf = float(latest['confianca']) if 'confianca' in latest else 0.0
+        temp = float(latest['temp']) if 'temp' in latest else 0.0
+        hum = float(latest['hum']) if 'hum' in latest else 0.0
+        hpa = float(latest['hPa']) if 'hPa' in latest else 0.0
         
         estado, cor, acao = processar_decisao(fruta, voc)
 
@@ -201,37 +201,52 @@ with tab_dash:
 
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # 3. GRÁFICOS INTERATIVOS
+        # 3. GRÁFICOS INTERATIVOS (Apenas criados se as variáveis existirem no DataFrame)
         col_l, col_r = st.columns(2)
         
         with col_l:
             st.markdown("<h3 style='font-size: 1.2rem; margin-bottom: 15px;'>📈 Evolução Olfativa (VOC)</h3>", unsafe_allow_html=True)
-            fig_voc = px.line(df, x='_time', y='voc_gas', template="plotly_dark", color_discrete_sequence=[cor])
-            fig_voc.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                margin=dict(l=0,r=0,t=0,b=0), xaxis_title="", yaxis_title="Resistência (Ω)",
-                font=dict(family="Inter", color="#a0a5b5"), hovermode="x unified"
-            )
-            fig_voc.update_traces(line=dict(width=3), fill='tozeroy', fillcolor=f"rgba({ '255, 75, 75' if cor == '#ff4b4b' else '0, 255, 204' if cor == '#00ffcc' else '255, 204, 0' }, 0.1)")
-            st.plotly_chart(fig_voc, use_container_width=True)
+            if 'voc_gas' in df.columns and '_time' in df.columns:
+                # Removemos NaNs (linhas onde o voc_gas não foi registado) para não quebrar a linha do gráfico
+                df_clean = df.dropna(subset=['voc_gas'])
+                if not df_clean.empty:
+                    fig_voc = px.line(df_clean, x='_time', y='voc_gas', template="plotly_dark", color_discrete_sequence=[cor])
+                    fig_voc.update_layout(
+                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                        margin=dict(l=0,r=0,t=0,b=0), xaxis_title="", yaxis_title="Resistência (Ω)",
+                        font=dict(family="Inter", color="#a0a5b5"), hovermode="x unified"
+                    )
+                    fig_voc.update_traces(line=dict(width=3), fill='tozeroy', fillcolor=f"rgba({ '255, 75, 75' if cor == '#ff4b4b' else '0, 255, 204' if cor == '#00ffcc' else '255, 204, 0' }, 0.1)")
+                    st.plotly_chart(fig_voc, use_container_width=True)
+            else:
+                st.caption("A aguardar dados históricos de VOC...")
 
         with col_r:
             st.markdown("<h3 style='font-size: 1.2rem; margin-bottom: 15px;'>🧠 Temperatura vs Confiança</h3>", unsafe_allow_html=True)
-            # Gráfico Duplo Eixo (Temp e Confiança)
-            fig_comp = go.Figure()
-            fig_comp.add_trace(go.Scatter(x=df['_time'], y=df['temp'], name="Temperatura", line=dict(color="#ff5e62", width=3)))
-            fig_comp.add_trace(go.Scatter(x=df['_time'], y=df['confianca'], name="Confiança", yaxis="y2", line=dict(color="#00d2ff", width=2, dash="dot")))
-            fig_comp.update_layout(
-                template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                margin=dict(l=0,r=0,t=0,b=0), font=dict(family="Inter", color="#a0a5b5"),
-                yaxis=dict(title="ºC"),
-                yaxis2=dict(title="%", overlaying="y", side="right"),
-                legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
-            )
-            st.plotly_chart(fig_comp, use_container_width=True)
+            if 'temp' in df.columns and 'confianca' in df.columns:
+                fig_comp = go.Figure()
+                # Removemos NaNs individualmente para desenhar cada linha corretamente
+                df_temp = df.dropna(subset=['temp'])
+                df_conf = df.dropna(subset=['confianca'])
+                
+                if not df_temp.empty:
+                    fig_comp.add_trace(go.Scatter(x=df_temp['_time'], y=df_temp['temp'], name="Temperatura", line=dict(color="#ff5e62", width=3)))
+                if not df_conf.empty:
+                    fig_comp.add_trace(go.Scatter(x=df_conf['_time'], y=df_conf['confianca'], name="Confiança", yaxis="y2", line=dict(color="#00d2ff", width=2, dash="dot")))
+                
+                fig_comp.update_layout(
+                    template="plotly_dark", paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
+                    margin=dict(l=0,r=0,t=0,b=0), font=dict(family="Inter", color="#a0a5b5"),
+                    yaxis=dict(title="ºC"),
+                    yaxis2=dict(title="%", overlaying="y", side="right"),
+                    legend=dict(orientation="h", yanchor="bottom", y=1.02, xanchor="right", x=1)
+                )
+                st.plotly_chart(fig_comp, use_container_width=True)
+            else:
+                st.caption("A aguardar dados combinados...")
 
     else:
-        st.info("🔭 À procura de sinal da Edge Gateway na Cloud InfluxDB... Garante que o Telegraf está a enviar dados.")
+        st.info("🔭 À procura de sinal da Edge Gateway na Cloud InfluxDB... Garante que o sensor está a enviar dados.")
 
 with tab_admin:
     st.header("🛠️ Ajuste de Thresholds IA")
