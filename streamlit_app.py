@@ -21,18 +21,26 @@ def fetch_data():
     client = get_influx_client()
     query_api = client.query_api()
     
-    # Busca os últimos 5 minutos de dados. Pivot reorganiza as colunas corretamente.
     query = f"""
     from(bucket: "{INFLUX_BUCKET}")
-      |> range(start: -5m)
+      |> range(start: -10m)
       |> filter(fn: (r) => r["_measurement"] == "mqtt_consumer")
       |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
     """
     try:
+        # Tenta obter os dados
         df = query_api.query_data_frame(query)
-        return df if isinstance(df, pd.DataFrame) else pd.DataFrame()
+        
+        # O Influx às vezes devolve uma lista de DFs ou um DF vazio
+        if isinstance(df, list):
+            df = pd.concat(df)
+        return df if isinstance(df, pd.DataFrame) and not df.empty else pd.DataFrame()
+        
     except Exception as e:
-        st.error(f"Erro na Base de Dados: {e}")
+        if "401" in str(e):
+            st.error("🔑 Erro de Autenticação: O Token do InfluxDB é inválido.")
+        else:
+            st.error(f"❌ Erro na Base de Dados: {e}")
         return pd.DataFrame()
 
 def processar_decisao(classe, voc):
