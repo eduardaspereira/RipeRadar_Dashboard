@@ -62,6 +62,23 @@ st.markdown("""
     .paper-abstract-title { font-weight: bold; text-align: center; text-transform: uppercase; font-size: 14px; margin-bottom: 10px; }
     .paper-text { text-align: justify; line-height: 1.6; font-size: 15px; margin-bottom: 15px; }
     .paper-list { font-size: 15px; line-height: 1.6; text-align: justify; }
+    
+    /* Estilo para o Diagrama ASCII */
+    .ascii-diagram {
+        background-color: #f4f6f8;
+        border: 1px solid #d1d5db;
+        border-radius: 6px;
+        padding: 15px;
+        margin: 20px 0;
+        overflow-x: auto;
+    }
+    .ascii-diagram pre {
+        font-family: 'Roboto Mono', monospace;
+        font-size: 12px;
+        color: #374151;
+        line-height: 1.2;
+        margin: 0;
+    }
     </style>
     """, unsafe_allow_html=True)
 
@@ -172,7 +189,7 @@ with tab_dash:
 
         c1, c2, c3, c4, c5 = st.columns(5)
         c1.metric("ÍNDICE VOC", f"{voc/1000:.1f} kΩ")
-        c2.metric("CONFIANÇA (IA)", f"{conf*100 if conf <= 1 else conf:.1f}%") # Ajuste caso a confiança venha como 0.85 em vez de 85
+        c2.metric("CONFIANÇA (IA)", f"{conf*100 if conf <= 1 else conf:.1f}%")
         c3.metric("TEMPERATURA", f"{temp:.1f} ºC")
         c4.metric("HUMIDADE", f"{hum:.1f}%")
         c5.metric("PRESSÃO ATM.", f"{hpa:.1f} hPa")
@@ -229,7 +246,6 @@ with tab_admin:
             st.success("Configurações atualizadas!")
 
 with tab_paper:
-    # A MAGIA ESTÁ AQUI: Sem espaços em branco no início das linhas de HTML para evitar que o Markdown o transforme em bloco de código!
     html_paper = """<div class="paper-box">
 <div class="paper-title">RipeRadar: Multimodal Edge Fusion for Real-Time Fruit Spoilage Detection</div>
 <div class="paper-authors">Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães<br>Department of Informatics, University of Minho, Braga, Portugal</div>
@@ -239,6 +255,30 @@ with tab_paper:
 <p class="paper-text">A orquestração assíncrona é mediada via Bluetooth Low Energy (BLE) por um <i>Edge Gateway</i> (Raspberry Pi 5), culminando nesta plataforma analítica baseada em InfluxDB. Este ecossistema garante autonomia operacional, latência residual e mitigação de falsos positivos face a ambiguidades visuais no retalho inteligente.</p>
 <hr style="margin: 30px 0; border: 1px solid #ccc;">
 <h3 style="font-size: 18px; margin-bottom: 10px; color: #111;">System Architecture</h3>
+
+<div class="ascii-diagram">
+<pre>
+[CAMADA DE PERCEÇÃO / EDGE]                 [CAMADA GATEWAY]                       [CAMADA CLOUD / APLICAÇÃO]
+
++-------------------------+
+| Arduino Nano 33 BLE     |
+| (Câmara OV7675 - CNN)   | ---(BLE)---\\
++-------------------------+             \\
+                                         v
+                                  +------------------+         (HTTPS)          +------------------+
+                                  | Raspberry Pi 5   | -----------------------> | InfluxDB Cloud   |
+                                  | (Script Python)  |                          | (Base de Dados)  |
+                                  +------------------+                          +------------------+
+                                         ^                                              |
+                                        /                                               | (API Query)
++-------------------------+            /                                                v
+| Arduino Nicla Sense ME  | ---(BLE)---                                         +------------------+
+| (BME688 - VOC, Temp)    |                                                     | Streamlit Cloud  |
++-------------------------+                                                     | (Dashboard UI)   |
+                                                                                +------------------+
+</pre>
+</div>
+
 <ul class="paper-list">
 <li><b>Camada de Perceção (Periphery):</b> Arduino Nano 33 BLE (Visão / CNN) e Arduino Nicla Sense ME (Olfação Digital / BME688).</li>
 <li><b>Camada de Comunicação:</b> Bluetooth Low Energy (BLE) para aquisição de dados locais de forma descentralizada.</li>
