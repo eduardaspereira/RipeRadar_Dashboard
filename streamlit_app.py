@@ -223,16 +223,25 @@ with tab_dash:
 
         with col_r:
             st.markdown("<h3 style='font-size: 1.2rem; margin-bottom: 15px; color: #ffffff;'>🕸️ Assinatura Ambiental (Radar)</h3>", unsafe_allow_html=True)
-            # Normalização geométrica para o Radar Chart ficar bonito
+            # Normalização geométrica para o Radar Chart
             radar_data = pd.DataFrame(dict(
                 r=[temp * 3, hum, (hpa - 900) if hpa > 900 else 0, (voc / 200) if voc > 0 else 0, conf],
                 theta=['Temp (Norm)', 'Hum (%)', 'Pressão (Rel)', 'VOC (Norm)', 'IA Conf (%)']
             ))
             fig_radar = px.line_polar(radar_data, r='r', theta='theta', line_close=True, template="plotly_dark")
             fig_radar.update_traces(fill='toself', fillcolor='rgba(0, 210, 255, 0.2)', line_color='#00d2ff', line_width=2)
+            
             fig_radar.update_layout(
-                paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                polar=dict(radialaxis=dict(visible=False, showticklabels=False), angularaxis=dict(color="#a0a5b5", font=dict(family="Inter", size=11))),
+                paper_bgcolor='rgba(0,0,0,0)', 
+                plot_bgcolor='rgba(0,0,0,0)',
+                polar=dict(
+                    bgcolor='rgba(0,0,0,0)', # Fundo transparente do radar
+                    radialaxis=dict(visible=False, showticklabels=False), 
+                    angularaxis=dict(
+                        color="#a0a5b5", 
+                        tickfont=dict(family="Inter", size=11) 
+                    )
+                ),
                 margin=dict(l=40, r=40, t=20, b=20)
             )
             st.plotly_chart(fig_radar, use_container_width=True)
