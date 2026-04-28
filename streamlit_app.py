@@ -252,38 +252,38 @@ with tab_paper:
 <div class="paper-abstract-title">Abstract</div>
 <p class="paper-text">A degradação da qualidade hortofrutícola durante a cadeia de abastecimento e no retalho representa um desafio logístico e económico significativo, contribuindo para elevados índices de desperdício alimentar. Para superar as limitações de infraestruturas centralizadas, propomos o <b>RipeRadar</b>, uma arquitetura <i>Internet of Things (IoT)</i> descentralizada para monitorização multimodal.</p>
 <p class="paper-text">O RipeRadar transpõe o processamento analítico para a <i>Edge</i> da rede através de modelos <i>Tiny Machine Learning (TinyML)</i> executados diretamente em microcontroladores. A inovação central reside numa estratégia de <b>Late Fusion</b> (Decision-Level Fusion) que correlaciona inferências visuais de uma rede neuronal (via OV7675 no Arduino Nano 33 BLE) com leituras contínuas de compostos orgânicos voláteis (VOCs) extraídas do sensor BME688 (Arduino Nicla Sense ME).</p>
-<p class="paper-text">A orquestração assíncrona é mediada via Bluetooth Low Energy (BLE) por um <i>Edge Gateway</i> (Raspberry Pi 5), culminando nesta plataforma analítica baseada em InfluxDB. Este ecossistema garante autonomia operacional, latência residual e mitigação de falsos positivos face a ambiguidades visuais no retalho inteligente.</p>
+<p class="paper-text">A orquestração assíncrona é mediada via Bluetooth Low Energy (BLE) por um <i>Edge Gateway</i> (Raspberry Pi 5), que publica os dados fundidos num <i>Message Broker</i> (HiveMQ) via protocolo MQTT. A ingestão na base de dados temporal (InfluxDB) é automatizada pelo serviço Telegraf, culminando nesta plataforma analítica. Este ecossistema garante autonomia operacional, baixo consumo de largura de banda e mitigação de falsos positivos face a ambiguidades visuais no retalho inteligente.</p>
 <hr style="margin: 30px 0; border: 1px solid #ccc;">
 <h3 style="font-size: 18px; margin-bottom: 10px; color: #111;">System Architecture</h3>
 
 <div class="ascii-diagram">
-<pre>
-[CAMADA DE PERCEÇÃO / EDGE]                 [CAMADA GATEWAY]                       [CAMADA CLOUD / APLICAÇÃO]
+<pre style="font-family: 'Roboto Mono', monospace; white-space: pre; overflow-x: auto; font-size: 13px; line-height: 1.2; color: #374151;">
+[CAMADA DE PERCEÇÃO]           [CAMADA GATEWAY]              [CAMADA CLOUD / APLICAÇÃO]
 
-+-------------------------+
-| Arduino Nano 33 BLE     |
-| (Câmara OV7675 - CNN)   | ---(BLE)---\\
-+-------------------------+             \\
-                                         v
-                                  +------------------+         (HTTPS)          +------------------+
-                                  | Raspberry Pi 5   | -----------------------> | InfluxDB Cloud   |
-                                  | (Script Python)  |                          | (Base de Dados)  |
-                                  +------------------+                          +------------------+
-                                         ^                                              |
-                                        /                                               | (API Query)
-+-------------------------+            /                                                v
-| Arduino Nicla Sense ME  | ---(BLE)---                                         +------------------+
-| (BME688 - VOC, Temp)    |                                                     | Streamlit Cloud  |
-+-------------------------+                                                     | (Dashboard UI)   |
-                                                                                +------------------+
++---------------------+
+| Arduino Nano 33 BLE |
+| (Visão / CNN)       | --(BLE)--\\
++---------------------+           \\
+                                   v
+                            +----------------+  (MQTT)   +----------------+       +-----------------+
+                            | Raspberry Pi 5 | --------> | HiveMQ Cloud   |       | Streamlit Cloud |
+                            | (Script MQTT)  |  (TLS)    | (Broker MQTT)  |       | (Dashboard UI)  |
+                            +----------------+           +----------------+       +-----------------+
+                                   ^                             |                        ^
+                                  /                        (Telegraf Sub)                 | (Query)
++---------------------+          /                               v                        |
+| Nicla Sense ME      | --(BLE)-/                        +----------------+---------------+
+| (BME688 - VOC/Temp) |                                  | InfluxDB Cloud |
++---------------------+                                  | (Time-Series)  |
+                                                         +----------------+
 </pre>
 </div>
 
 <ul class="paper-list">
 <li><b>Camada de Perceção (Periphery):</b> Arduino Nano 33 BLE (Visão / CNN) e Arduino Nicla Sense ME (Olfação Digital / BME688).</li>
-<li><b>Camada de Comunicação:</b> Bluetooth Low Energy (BLE) para aquisição de dados locais de forma descentralizada.</li>
-<li><b>Camada de Processamento (Edge Gateway):</b> Raspberry Pi 5 atuando como agregador e ponte para a Cloud.</li>
-<li><b>Camada de Aplicação:</b> Base de dados temporal (InfluxDB Cloud) e interface analítica em tempo real (Streamlit).</li>
+<li><b>Camada Gateway:</b> Raspberry Pi 5 atua como agregador local, fundindo os dados e publicando via MQTT (QoS 1).</li>
+<li><b>Camada de Mensagens:</b> HiveMQ Cloud gere a conectividade segura (TLS, porta 8883) servindo como <i>Broker</i> central do sistema.</li>
+<li><b>Camada de Armazenamento e UI:</b> Telegraf realiza a subscrição de tópicos e injeta as métricas no InfluxDB Cloud, consumido em tempo real pelo Streamlit.</li>
 </ul>
 </div>"""
     st.markdown(html_paper, unsafe_allow_html=True)
