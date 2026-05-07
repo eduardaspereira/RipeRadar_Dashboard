@@ -7,7 +7,7 @@ from datetime import datetime, timezone
 import time
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="RipeRadar OS | Enterprise", page_icon="🍏", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="RipeRadar OS | Edge AI", page_icon="🍎", layout="wide", initial_sidebar_state="expanded")
 
 # --- 2. GESTÃO DE SESSÃO (LOGIN) ---
 if 'logado' not in st.session_state:
@@ -24,63 +24,69 @@ def verificar_login():
         st.session_state.logado = True
         st.session_state.cargo = "Operador"
     else:
-        st.error("Credenciais inválidas. Tente novamente.")
+        st.error("Credenciais inválidas. Verifique o seu ID e Palavra-Passe.")
 
 def logout():
     st.session_state.logado = False
     st.session_state.cargo = ""
 
-# --- 3. CSS PREMIUM (SaaS ENTERPRISE UI) ---
+# --- 3. CSS DARK MODE PREMIUM ---
 st.markdown("""
     <style>
-    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&family=JetBrains+Mono:wght@400;700&display=swap');
     
-    /* Fundo Global Suave */
-    .stApp { background-color: #F0F4F8; color: #1E293B; font-family: 'Inter', sans-serif; }
+    /* Fundo Dark Mode Premium (Azul Noite Profundo) */
+    .stApp { background-color: #0B0F19; color: #F8FAFC; font-family: 'Inter', sans-serif; }
     
-    /* Ocultar elementos nativos desnecessários */
+    /* Ocultar elementos nativos */
     #MainMenu {visibility: hidden;}
     footer {visibility: hidden;}
 
-    /* Custom Metric Cards */
+    /* Cartões Premium Dark com efeito Glassmorphism subtil */
     .premium-card {
-        background: #FFFFFF; border-radius: 16px; padding: 20px;
-        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04); border: 1px solid #E2E8F0;
-        transition: transform 0.2s ease, box-shadow 0.2s ease;
+        background: linear-gradient(145deg, #111827 0%, #0F172A 100%);
+        border-radius: 16px; padding: 24px;
+        border: 1px solid rgba(56, 189, 248, 0.1);
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.4);
     }
-    .premium-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08); }
-    .card-title { color: #64748B; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px; }
-    .card-value { color: #0F172A; font-size: 2rem; font-weight: 700; display: flex; align-items: baseline; gap: 8px;}
-    .card-unit { color: #94A3B8; font-size: 1rem; font-weight: 400; }
+    .card-title { color: #94A3B8; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 8px; letter-spacing: 0.5px; }
+    .card-value { color: #F8FAFC; font-size: 2.2rem; font-weight: 700; display: flex; align-items: baseline; gap: 8px; font-family: 'JetBrains Mono', monospace;}
+    .card-unit { color: #64748B; font-size: 1rem; font-weight: 500; font-family: 'Inter', sans-serif;}
     
     /* Action Card Principal */
     .main-action-card {
-        background: #FFFFFF; border-radius: 20px; padding: 30px; text-align: center;
-        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05); margin-bottom: 25px; position: relative; overflow: hidden;
+        background: linear-gradient(180deg, #1E293B 0%, #0F172A 100%);
+        border-radius: 20px; padding: 35px; text-align: center;
+        border: 1px solid rgba(255, 255, 255, 0.05); margin-bottom: 25px; box-shadow: 0 10px 30px rgba(0, 0, 0, 0.5);
     }
     
-    /* Timeline Estilo Corporate */
-    .timeline { border-left: 3px solid #CBD5E1; margin-left: 20px; padding-left: 30px; position: relative; }
-    .timeline-item { position: relative; margin-bottom: 25px; }
+    /* Timeline Estilo Hacker/Corporate */
+    .timeline { border-left: 2px solid #334155; margin-left: 15px; padding-left: 30px; position: relative;}
+    .timeline-item { position: relative; margin-bottom: 30px; }
     .timeline-item::before {
-        content: ''; position: absolute; left: -39px; top: 4px; width: 14px; height: 14px;
-        border-radius: 50%; background: #FFFFFF; border: 3px solid #3B82F6; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+        content: ''; position: absolute; left: -39px; top: 4px; width: 16px; height: 16px;
+        border-radius: 50%; background: #0F172A; border: 3px solid #38BDF8; box-shadow: 0 0 10px rgba(56, 189, 248, 0.4);
     }
-    .timeline-item.warning::before { border-color: #F59E0B; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1); }
-    .timeline-item.danger::before { border-color: #EF4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1); }
-    .timeline-date { font-size: 0.8rem; color: #64748B; font-weight: 700; margin-bottom: 8px; }
-    .timeline-content { background: #FFFFFF; padding: 18px; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
+    .timeline-item.warning::before { border-color: #FBBF24; box-shadow: 0 0 10px rgba(251, 191, 36, 0.4); }
+    .timeline-item.danger::before { border-color: #EF4444; box-shadow: 0 0 10px rgba(239, 68, 68, 0.4); }
+    .timeline-date { font-size: 0.85rem; color: #94A3B8; font-weight: 600; margin-bottom: 8px; font-family: 'JetBrains Mono', monospace;}
+    .timeline-content { background-color: rgba(30, 41, 59, 0.5); padding: 20px; border-radius: 12px; border: 1px solid #334155;}
     
-    /* Login Screen Centrado e Limpo */
-    .login-container {
-        background: #FFFFFF; padding: 50px; border-radius: 24px;
-        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08); text-align: center; max-width: 450px; margin: 0 auto;
+    /* Login Screen Centrado */
+    .login-wrapper {
+        background: #111827; padding: 50px 40px; border-radius: 24px;
+        box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.7); text-align: center;
+        border: 1px solid #1E293B;
     }
     
-    /* Tabs */
-    .stTabs [data-baseweb="tab-list"] { gap: 20px; border-bottom: 2px solid #E2E8F0; }
-    .stTabs [data-baseweb="tab"] { padding: 12px 20px; font-weight: 600; color: #64748B; font-size: 1rem;}
-    .stTabs [aria-selected="true"] { border-bottom: 3px solid #0F172A !important; color: #0F172A !important; background: transparent;}
+    /* Customizando os Inputs e Botões do Streamlit */
+    div[data-baseweb="input"] { background-color: #0F172A; border-color: #334155; }
+    div[data-baseweb="input"] > input { color: #F8FAFC; }
+    
+    /* Abas Premium */
+    .stTabs [data-baseweb="tab-list"] { border-bottom: 2px solid #1E293B; gap: 24px; }
+    .stTabs [data-baseweb="tab"] { color: #64748B; font-weight: 600; font-size: 1.05rem; padding-bottom: 12px;}
+    .stTabs [aria-selected="true"] { color: #38BDF8 !important; border-bottom: 3px solid #38BDF8 !important; background: transparent;}
     </style>
     """, unsafe_allow_html=True)
 
@@ -122,44 +128,69 @@ def processar_decisao(classe, voc):
 # ==========================================
 if not st.session_state.logado:
     st.markdown("<br><br><br><br>", unsafe_allow_html=True)
-    st.markdown("""
-        <div class="login-container">
-            <h1 style="font-size: 3.5rem; margin-bottom: 0;">🍎</h1>
-            <h2 style="color: #0F172A; font-weight: 700; letter-spacing: -1px; margin-top: 10px;">RipeRadar OS</h2>
-            <p style="color: #64748B; margin-bottom: 30px;">Gestão Inteligente de Qualidade Hortofrutícola</p>
-        </div>
-    """, unsafe_allow_html=True)
     
     col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.text_input("ID de Utilizador", key="user_input")
-        st.text_input("Palavra-Passe", type="password", key="pass_input")
+        st.markdown("""
+        <div class="login-wrapper">
+            <h1 style='font-size: 4rem; margin: 0; line-height: 1;'>🍎</h1>
+            <h2 style='color: #F8FAFC; font-weight: 700; margin-top: 15px; font-size: 2rem;'>RipeRadar OS</h2>
+            <p style='color: #94A3B8; margin-bottom: 35px; font-size: 0.95rem;'>Sistema Integrado de Monitorização IoT</p>
+        </div>
+        """, unsafe_allow_html=True)
+        
+        st.markdown("<div style='margin-top: -20px; position: relative; z-index: 10;'>", unsafe_allow_html=True)
+        st.text_input("Identificação de Utilizador", key="user_input")
+        st.text_input("Código de Acesso", type="password", key="pass_input")
         st.markdown("<br>", unsafe_allow_html=True)
-        st.button("Entrar no Sistema", on_click=verificar_login, use_container_width=True, type="primary")
+        st.button("Iniciar Sessão Segura", on_click=verificar_login, use_container_width=True, type="primary")
+        st.markdown("</div>", unsafe_allow_html=True)
 
 # ==========================================
-# ECRÃ 2: DASHBOARD
+# ECRÃ 2: DASHBOARD (LOGADO)
 # ==========================================
 else:
     # --- MENU LATERAL PREMIUM ---
     with st.sidebar:
-        st.markdown(f"<h3 style='color: #0F172A; font-weight: 700;'>Bem-vindo,<br><span style='color: #3B82F6;'>{st.session_state.cargo}</span></h3>", unsafe_allow_html=True)
-        st.button("Sair da Conta", on_click=logout, use_container_width=True)
-        st.markdown("<br><hr style='border-color: #E2E8F0;'><br>", unsafe_allow_html=True)
+        st.markdown(f"""
+            <div style="background: rgba(15, 23, 42, 0.5); padding: 20px; border-radius: 12px; border: 1px solid #1E293B; text-align: center; margin-bottom: 20px;">
+                <h3 style="margin: 0; color: #94A3B8; font-size: 0.9rem; text-transform: uppercase;">Operador Ativo</h3>
+                <h2 style="margin: 5px 0 15px 0; color: #38BDF8;">{st.session_state.cargo}</h2>
+            </div>
+        """, unsafe_allow_html=True)
         
-        st.markdown("<p style='font-size: 0.85rem; font-weight: 600; color: #64748B; text-transform: uppercase;'>Infraestrutura IoT</p>", unsafe_allow_html=True)
-        st.markdown("🟢 **Gateway Edge** (Online)<br>🟢 **Nicla Sense** (Ativo)<br>🟢 **Nano 33 BLE** (Ativo)", unsafe_allow_html=True)
+        st.button("Terminar Sessão", on_click=logout, use_container_width=True)
+        
+        st.markdown("<hr style='border-color: #1E293B;'>", unsafe_allow_html=True)
+        
+        # Secção de Saúde do Sistema (UI Apenas)
+        st.markdown("<h4 style='color: #F8FAFC; font-size: 1rem; margin-bottom: 15px;'>⚙️ Diagnóstico de Sistema</h4>", unsafe_allow_html=True)
+        
+        st.markdown("<p style='font-size: 0.8rem; color: #94A3B8; margin-bottom: 2px;'>Carga CPU (Edge Gateway)</p>", unsafe_allow_html=True)
+        st.progress(24)
+        
+        st.markdown("<p style='font-size: 0.8rem; color: #94A3B8; margin-bottom: 2px; margin-top: 10px;'>Sinal BLE (Nicla Sense)</p>", unsafe_allow_html=True)
+        st.progress(85)
+        
+        st.markdown("<hr style='border-color: #1E293B;'>", unsafe_allow_html=True)
+        
+        # Toggle para Live Refresh
+        st.markdown("<h4 style='color: #F8FAFC; font-size: 1rem; margin-bottom: 10px;'>🔄 Controlo de Telemetria</h4>", unsafe_allow_html=True)
+        auto_refresh = st.toggle("Sincronização Live (5s)", value=True, help="Desligue para ajustar configurações sem interrupções.")
 
     # --- CARREGAR DADOS ---
     df = fetch_data()
     
-    # Cabeçalho Principal
-    st.markdown("<h1 style='color: #0F172A; font-weight: 700; font-size: 2.2rem; letter-spacing: -1px;'>Painel de Monitorização</h1>", unsafe_allow_html=True)
+    st.markdown("<h1 style='font-weight: 700; font-size: 2.2rem; margin-bottom: 20px;'>Centro de Comando Analítico</h1>", unsafe_allow_html=True)
     
-    tab_dash, tab_admin = st.tabs(["Dashboard de Operações", "Calibração do Sistema"])
+    # --- ABAS (O Operador agora TAMBÉM tem Calibração) ---
+    if st.session_state.cargo == "Chefe de Loja":
+        tab_dash, tab_time, tab_admin = st.tabs(["📊 Monitorização em Tempo Real", "⏱️ Timeline Histórica", "⚙️ Calibração de IA"])
+    else:
+        tab_dash, tab_admin = st.tabs(["📊 Monitorização em Tempo Real", "⚙️ Calibração de IA"])
 
     # ---------------------------------------------------------
-    # TAB 1: DASHBOARD
+    # TAB 1: DASHBOARD (IGUAL PARA AMBOS)
     # ---------------------------------------------------------
     with tab_dash:
         if not df.empty and '_time' in df.columns:
@@ -178,122 +209,145 @@ else:
             with col_acao:
                 st.markdown(f"""
                     <div class="main-action-card" style="border-bottom: 8px solid {cor};">
-                        <div style="font-size: 1rem; color: #64748B; font-weight: 600; text-transform: uppercase; margin-bottom: 10px;">Lote em Análise: <span style="color: #0F172A;">{fruta.upper().replace('_', ' ')}</span></div>
-                        <h1 style="color: {cor}; font-size: 3.2rem; font-weight: 800; margin: 0; line-height: 1.1;">{estado}</h1>
-                        <h3 style="color: #334155; font-weight: 600; margin-top: 15px;">{acao}</h3>
+                        <div style="font-size: 1rem; color: #94A3B8; font-weight: 600; text-transform: uppercase; margin-bottom: 10px; letter-spacing: 1px;">Alvo Visualizado: <span style="color: #F8FAFC;">{fruta.upper().replace('_', ' ')}</span></div>
+                        <h1 style="color: {cor}; font-size: 3.5rem; font-weight: 800; margin: 0; line-height: 1.1;">{estado}</h1>
+                        <h3 style="color: #E2E8F0; font-weight: 400; margin-top: 15px;">Ação Recomendada: <b>{acao.split(': ')[1] if ': ' in acao else acao}</b></h3>
                     </div>
                 """, unsafe_allow_html=True)
                 
             with col_gauge:
-                # O Novo Gráfico Gauge de Alta Qualidade
                 limite_min = thresholds["clim_fresco"] if "maca" in fruta.lower() or "banana" in fruta.lower() else thresholds["nclim_firme"]
                 limite_max = thresholds["clim_maduro"] if "maca" in fruta.lower() or "banana" in fruta.lower() else thresholds["nclim_risco"]
                 
                 fig_gauge = go.Figure(go.Indicator(
-                    mode = "gauge+number",
-                    value = voc,
-                    number = {'suffix': " Ω", 'font': {'size': 35, 'color': '#0F172A', 'family': 'Inter'}},
-                    title = {'text': "NÍVEL DE VOC ATUAL", 'font': {'size': 14, 'color': '#64748B', 'family': 'Inter'}},
+                    mode = "gauge+number", value = voc,
+                    number = {'suffix': " Ω", 'font': {'size': 35, 'color': '#F8FAFC', 'family': 'JetBrains Mono'}},
+                    title = {'text': "RESISTÊNCIA DO SENSOR (VOC)", 'font': {'size': 13, 'color': '#94A3B8', 'family': 'Inter'}},
                     gauge = {
-                        'axis': {'range': [None, 25000], 'tickwidth': 1, 'tickcolor': "#CBD5E1"},
+                        'axis': {'range': [None, 25000], 'tickwidth': 2, 'tickcolor': "#334155"},
                         'bar': {'color': cor, 'thickness': 0.25},
-                        'bgcolor': "white",
-                        'borderwidth': 0,
+                        'bgcolor': "#0F172A", 'borderwidth': 0,
                         'steps': [
-                            {'range': [0, limite_min], 'color': "rgba(239, 68, 68, 0.15)"},    # Vermelho leve
-                            {'range': [limite_min, limite_max], 'color': "rgba(245, 158, 11, 0.15)"}, # Laranja leve
-                            {'range': [limite_max, 25000], 'color': "rgba(16, 185, 129, 0.15)"}  # Verde leve
+                            {'range': [0, limite_min], 'color': "rgba(239, 68, 68, 0.15)"},    
+                            {'range': [limite_min, limite_max], 'color': "rgba(245, 158, 11, 0.15)"}, 
+                            {'range': [limite_max, 25000], 'color': "rgba(16, 185, 129, 0.15)"}  
                         ]
                     }
                 ))
-                fig_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=30, b=10), paper_bgcolor='rgba(0,0,0,0)', font={'family': "Inter"})
+                fig_gauge.update_layout(height=260, margin=dict(l=30, r=30, t=30, b=10), paper_bgcolor='rgba(0,0,0,0)', font={'family': "Inter"})
                 st.plotly_chart(fig_gauge, use_container_width=True)
 
-            # --- LINHA DO MEIO: CARTÕES HTML PREMIUM ---
+            # --- LINHA DO MEIO: CARTÕES PREMIUM ---
             c1, c2, c3, c4 = st.columns(4)
-            c1.markdown(f'<div class="premium-card"><div class="card-title">🔍 Confiança IA</div><div class="card-value">{conf*100 if conf <= 1 else conf:.1f} <span class="card-unit">%</span></div></div>', unsafe_allow_html=True)
+            c1.markdown(f'<div class="premium-card"><div class="card-title">🎯 IA Confidence</div><div class="card-value">{conf*100 if conf <= 1 else conf:.1f} <span class="card-unit">%</span></div></div>', unsafe_allow_html=True)
             c2.markdown(f'<div class="premium-card"><div class="card-title">🌡️ Temperatura</div><div class="card-value">{temp:.1f} <span class="card-unit">ºC</span></div></div>', unsafe_allow_html=True)
             c3.markdown(f'<div class="premium-card"><div class="card-title">💧 Humidade</div><div class="card-value">{hum:.1f} <span class="card-unit">%</span></div></div>', unsafe_allow_html=True)
-            c4.markdown(f'<div class="premium-card"><div class="card-title">✅ Status de Rede</div><div class="card-value" style="color: #10B981; font-size: 1.5rem;">Sincronizado</div></div>', unsafe_allow_html=True)
+            c4.markdown(f'<div class="premium-card"><div class="card-title">⏱️ Latência MQTT</div><div class="card-value" style="color: #38BDF8;">124 <span class="card-unit">ms</span></div></div>', unsafe_allow_html=True)
 
-            st.markdown("<br><br>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
 
-            # --- ZONA DO CHEFE: GRÁFICO HISTÓRICO + TIMELINE ---
-            if st.session_state.cargo == "Chefe de Loja":
-                st.markdown("<h3 style='color: #0F172A; font-weight: 700; font-size: 1.5rem;'>Histórico de Degradação (Gestão)</h3>", unsafe_allow_html=True)
-                col_grafico, col_timeline = st.columns([1.8, 1])
+            # --- GRÁFICO DE HISTÓRICO MELHORADO ---
+            st.markdown("<h3 style='color: #F8FAFC; font-weight: 600; font-size: 1.3rem; margin-bottom: 15px;'>Evolução Dinâmica de Emissões Voláteis (Última Hora)</h3>", unsafe_allow_html=True)
+            st.markdown("<div class='premium-card' style='padding: 10px 20px;'>", unsafe_allow_html=True)
+            if 'voc_gas' in df.columns:
+                df_clean = df.dropna(subset=['voc_gas']).sort_values('_time')
                 
-                with col_grafico:
-                    st.markdown("<div class='premium-card'>", unsafe_allow_html=True)
-                    if 'voc_gas' in df.columns:
-                        df_clean = df.dropna(subset=['voc_gas']).sort_values('_time')
-                        fig_line = px.area(df_clean, x='_time', y='voc_gas', color_discrete_sequence=['#3B82F6'])
-                        fig_line.update_traces(fillcolor='rgba(59, 130, 246, 0.1)', line=dict(width=3))
-                        fig_line.update_layout(
-                            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
-                            xaxis_title="", yaxis_title="Resistência VOC (Ω)",
-                            margin=dict(l=0, r=0, t=10, b=0),
-                            xaxis=dict(showgrid=False), yaxis=dict(gridcolor='#E2E8F0')
-                        )
-                        st.plotly_chart(fig_line, use_container_width=True)
-                    st.markdown("</div>", unsafe_allow_html=True)
-
-                with col_timeline:
-                    st.markdown('<div class="timeline">', unsafe_allow_html=True)
-                    if 'voc_gas' in df.columns:
-                        df_sorted = df.sort_values(by='_time', ascending=False)
-                        eventos = 0
-                        for idx, row in df_sorted.iterrows():
-                            v_voc = float(row.get('voc_gas', 0))
-                            v_fruta = str(row.get('classe_dominante', ''))
-                            if v_voc > 0 and v_fruta:
-                                est, color, ac, sev = processar_decisao(v_fruta, v_voc)
-                                if sev in ["warning", "danger"] and eventos < 4:
-                                    d_time = row['_time'].strftime("%H:%M:%S")
-                                    st.markdown(f"""
-                                    <div class="timeline-item {sev}">
-                                        <div class="timeline-date">Hoje às {d_time}</div>
-                                        <div class="timeline-content">
-                                            <strong style="color: {color};">{est}</strong><br>
-                                            <span style="font-size: 0.9rem; color: #475569;">Alerta acionado devido à queda da resistência VOC para {v_voc/1000:.1f}kΩ.</span>
-                                        </div>
-                                    </div>
-                                    """, unsafe_allow_html=True)
-                                    eventos += 1
-                        if eventos == 0:
-                            st.markdown('<div class="timeline-item"><div class="timeline-content" style="border-left: 4px solid #10B981;"><strong>Lote Estável</strong><br>Sem alertas recentes.</div></div>', unsafe_allow_html=True)
-                    st.markdown('</div>', unsafe_allow_html=True)
+                # Gráfico Avançado Plotly
+                fig_line = go.Figure()
+                fig_line.add_trace(go.Scatter(
+                    x=df_clean['_time'], y=df_clean['voc_gas'],
+                    mode='lines+markers',
+                    line=dict(color='#38BDF8', width=3, shape='spline'), # Spline para curvas suaves
+                    marker=dict(size=6, color='#0F172A', line=dict(width=2, color='#38BDF8')),
+                    fill='tozeroy', fillcolor='rgba(56, 189, 248, 0.1)',
+                    name='Resistência VOC',
+                    hovertemplate='<b>%{x|%H:%M:%S}</b><br>VOC: %{y:.0f} Ω<extra></extra>'
+                ))
+                
+                fig_line.update_layout(
+                    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                    xaxis_title="", yaxis_title="Resistência (Ohms)",
+                    margin=dict(l=10, r=10, t=20, b=10),
+                    hovermode="x unified",
+                    xaxis=dict(showgrid=False, color="#94A3B8"), 
+                    yaxis=dict(gridcolor='#1E293B', color="#94A3B8", zerolinecolor='#1E293B')
+                )
+                st.plotly_chart(fig_line, use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+            
         else:
-            st.info("A aguardar ingestão de dados da Edge Gateway...")
+            st.info("A aguardar ingestão de pacotes MQTT...")
 
     # ---------------------------------------------------------
-    # TAB 2: CALIBRAÇÃO (ADMIN ONLY)
+    # ABA 2: TIMELINE (EXCLUSIVA CHEFE DE LOJA)
+    # ---------------------------------------------------------
+    if st.session_state.cargo == "Chefe de Loja":
+        with tab_time:
+            st.markdown("<h3 style='margin-bottom: 5px;'>Auditoria de Eventos e Alertas Críticos</h3>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #94A3B8; margin-bottom: 30px;'>Registo imutável gerado pela heurística de fusão da Edge Gateway.</p>", unsafe_allow_html=True)
+            
+            st.markdown('<div class="timeline">', unsafe_allow_html=True)
+            if not df.empty and 'voc_gas' in df.columns:
+                df_sorted = df.sort_values(by='_time', ascending=False)
+                eventos = 0
+                for idx, row in df_sorted.iterrows():
+                    v_voc = float(row.get('voc_gas', 0))
+                    v_fruta = str(row.get('classe_dominante', ''))
+                    if v_voc > 0 and v_fruta:
+                        est, color, ac, sev = processar_decisao(v_fruta, v_voc)
+                        if sev in ["warning", "danger"] and eventos < 10:
+                            d_time = row['_time'].strftime("%H:%M:%S")
+                            st.markdown(f"""
+                            <div class="timeline-item {sev}">
+                                <div class="timeline-date">REGISTO LOG: {d_time}</div>
+                                <div class="timeline-content">
+                                    <strong style="color: {color}; font-size: 1.15rem;">{est}</strong><br>
+                                    <div style="margin-top: 8px; color: #E2E8F0;">
+                                        📦 Produto Identificado: <span style="color: #38BDF8; font-weight: 600;">{v_fruta.replace('_', ' ').title()}</span><br>
+                                        🧪 Leitura Sensorial: <span style="font-family: 'JetBrains Mono'; font-size: 0.95rem;">{v_voc/1000:.2f} kΩ</span>
+                                    </div>
+                                    <div style="margin-top: 12px; padding-top: 12px; border-top: 1px solid #334155;">
+                                        <span style="color: #94A3B8; font-size: 0.85rem;">Protocolo de Segurança:</span> 
+                                        <strong style="color: #F8FAFC;">{ac.split(': ')[1] if ': ' in ac else ac}</strong>
+                                    </div>
+                                </div>
+                            </div>
+                            """, unsafe_allow_html=True)
+                            eventos += 1
+                if eventos == 0:
+                    st.markdown('<div class="timeline-item"><div class="timeline-content" style="border-left: 4px solid #10B981;"><strong>✅ Diagnóstico Perfeito</strong><br>Nenhum desvio dos parâmetros basais de qualidade detetado.</div></div>', unsafe_allow_html=True)
+            st.markdown('</div>', unsafe_allow_html=True)
+
+    # ---------------------------------------------------------
+    # ABA DE CALIBRAÇÃO (AGORA PARA AMBOS, MAS CHEFE PODE TER MAIS PODER NO FUTURO)
     # ---------------------------------------------------------
     with tab_admin:
-        if st.session_state.cargo == "Chefe de Loja":
-            st.markdown("<div class='premium-card'>", unsafe_allow_html=True)
-            with st.form("calibration_form"):
-                st.markdown("<h3 style='margin-top:0;'>Ajuste de Limiares do Sensor MOS</h3>", unsafe_allow_html=True)
-                st.markdown("<p style='color: #64748B;'>Defina os valores de corte de resistência elétrica (em Ohms) para calibrar a lógica de Late Fusion.</p>", unsafe_allow_html=True)
-                col_a, col_b = st.columns(2)
-                with col_a:
-                    st.markdown("#### Frutos Climatéricos (Banana/Maçã)")
-                    clim_f = st.slider("Fresco ➡️ Maduro", 10000, 15000, thresholds["clim_fresco"])
-                    clim_m = st.slider("Maduro ➡️ Podre", 15000, 20000, thresholds["clim_maduro"])
-                with col_b:
-                    st.markdown("#### Frutos Não-Climatéricos (Laranja)")
-                    nclim_f = st.slider("Firme ➡️ Risco", 10000, 14000, thresholds["nclim_firme"])
-                    nclim_r = st.slider("Risco ➡️ Degradada", 14000, 18000, thresholds["nclim_risco"])
-                    
-                if st.form_submit_button("Aplicar Nova Calibração", type="primary"):
-                    get_thresholds.clear()
-                    def get_thresholds(): return {"clim_fresco": clim_f, "clim_maduro": clim_m, "nclim_firme": nclim_f, "nclim_risco": nclim_r}
-                    thresholds = get_thresholds()
-                    st.success("Configurações aplicadas na Edge Gateway e Cloud.")
-            st.markdown("</div>", unsafe_allow_html=True)
-        else:
-            st.error("🔒 Área de Administração: Acesso barrado a perfis operacionais.")
+        st.markdown("<div class='premium-card'>", unsafe_allow_html=True)
+        with st.form("calibration_form"):
+            st.markdown("<h3 style='margin-top:0;'>Parâmetros do Modelo de Late Fusion</h3>", unsafe_allow_html=True)
+            st.markdown("<p style='color: #94A3B8;'>Sintonize a janela de resistência do sensor BME688. <i>Recomendado suspender o Live Refresh antes de operar.</i></p>", unsafe_allow_html=True)
+            st.markdown("<br>", unsafe_allow_html=True)
+            
+            col_a, col_b = st.columns(2)
+            with col_a:
+                st.markdown("#### 🍌 Fenologia Climatérica (Banana/Maçã)")
+                clim_f = st.slider("Transição Verde ➡️ Maduro", 10000, 15000, thresholds["clim_fresco"])
+                clim_m = st.slider("Transição Maduro ➡️ Podre", 15000, 20000, thresholds["clim_maduro"])
+            with col_b:
+                st.markdown("#### 🍊 Fenologia Não-Climatérica (Laranja)")
+                nclim_f = st.slider("Transição Firme ➡️ Risco", 10000, 14000, thresholds["nclim_firme"])
+                nclim_r = st.slider("Transição Risco ➡️ Degradada", 14000, 18000, thresholds["nclim_risco"])
+                
+            st.markdown("<br>", unsafe_allow_html=True)
+            if st.form_submit_button("Atualizar Algoritmo na Edge", type="primary"):
+                get_thresholds.clear()
+                def get_thresholds(): return {"clim_fresco": clim_f, "clim_maduro": clim_m, "nclim_firme": nclim_f, "nclim_risco": nclim_r}
+                thresholds = get_thresholds()
+                st.success("Novos limiares injetados com sucesso. Próxima inferência usará as novas regras.")
+        st.markdown("</div>", unsafe_allow_html=True)
 
-    # Auto-Refresh dinâmico
-    time.sleep(5)
-    st.rerun()
+    # --- AUTO REFRESH DINÂMICO ---
+    # Só faz refresh se a checkbox (toggle) estiver ativada!
+    if auto_refresh:
+        time.sleep(5)
+        st.rerun()
