@@ -7,9 +7,9 @@ from datetime import datetime, timezone
 import time
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="RipeRadar OS | Enterprise", page_icon="🍎", layout="wide", initial_sidebar_state="expanded")
+st.set_page_config(page_title="RipeRadar OS | Enterprise", page_icon="🍏", layout="wide", initial_sidebar_state="expanded")
 
-# --- 2. GESTÃO DE SESSÃO (LOGIN / RBAC) ---
+# --- 2. GESTÃO DE SESSÃO (LOGIN) ---
 if 'logado' not in st.session_state:
     st.session_state.logado = False
     st.session_state.cargo = ""
@@ -24,63 +24,73 @@ def verificar_login():
         st.session_state.logado = True
         st.session_state.cargo = "Operador"
     else:
-        st.error("Credenciais inválidas. Tente: chefe/admin123 ou operador/op123")
+        st.error("Credenciais inválidas. Tente novamente.")
 
 def logout():
     st.session_state.logado = False
     st.session_state.cargo = ""
 
-# --- 3. CSS CORPORATIVO & PAPER ACADÉMICO ---
+# --- 3. CSS PREMIUM (SaaS ENTERPRISE UI) ---
 st.markdown("""
     <style>
-    /* Fundo limpo corporativo */
-    .stApp { background-color: #F8F9FA; color: #2C3E50; font-family: 'Inter', sans-serif; }
+    @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700&display=swap');
     
-    /* Cartões de Métricas */
-    div[data-testid="metric-container"] {
-        background-color: #FFFFFF;
-        border-radius: 8px;
-        padding: 15px 20px;
-        box-shadow: 0 2px 4px rgba(0,0,0,0.05);
-        border-left: 4px solid #1F77B4;
-    }
-    div[data-testid="stMetricValue"] { font-size: 1.8rem; color: #2C3E50; font-weight: 700; }
-    div[data-testid="stMetricLabel"] { color: #7F8C8D; font-weight: 600; font-size: 0.9rem; }
+    /* Fundo Global Suave */
+    .stApp { background-color: #F0F4F8; color: #1E293B; font-family: 'Inter', sans-serif; }
+    
+    /* Ocultar elementos nativos desnecessários */
+    #MainMenu {visibility: hidden;}
+    footer {visibility: hidden;}
 
-    /* Cartão de Ação Principal */
-    .action-card {
-        background-color: #FFFFFF;
-        padding: 25px; border-radius: 10px; text-align: center; margin-bottom: 20px;
-        box-shadow: 0 4px 10px rgba(0,0,0,0.05);
-        border: 1px solid #E0E0E0;
+    /* Custom Metric Cards */
+    .premium-card {
+        background: #FFFFFF; border-radius: 16px; padding: 20px;
+        box-shadow: 0 4px 20px rgba(0, 0, 0, 0.04); border: 1px solid #E2E8F0;
+        transition: transform 0.2s ease, box-shadow 0.2s ease;
+    }
+    .premium-card:hover { transform: translateY(-3px); box-shadow: 0 8px 25px rgba(0, 0, 0, 0.08); }
+    .card-title { color: #64748B; font-size: 0.85rem; font-weight: 600; text-transform: uppercase; margin-bottom: 5px; letter-spacing: 0.5px; }
+    .card-value { color: #0F172A; font-size: 2rem; font-weight: 700; display: flex; align-items: baseline; gap: 8px;}
+    .card-unit { color: #94A3B8; font-size: 1rem; font-weight: 400; }
+    
+    /* Action Card Principal */
+    .main-action-card {
+        background: #FFFFFF; border-radius: 20px; padding: 30px; text-align: center;
+        box-shadow: 0 10px 30px rgba(0, 0, 0, 0.05); margin-bottom: 25px; position: relative; overflow: hidden;
     }
     
-    /* Tabs Corporativas */
-    .stTabs [data-baseweb="tab-list"] { gap: 10px; }
-    .stTabs [data-baseweb="tab"] { padding: 10px 20px; font-weight: 600; color: #7F8C8D; }
-    .stTabs [aria-selected="true"] { border-bottom: 3px solid #1F77B4 !important; color: #1F77B4 !important; }
-
-    /* Estilos do Paper e Diagrama ASCII (Os teus originais adaptados para fundo claro) */
-    .paper-box { background: #FFFFFF; color: #333333; padding: 40px; border-radius: 8px; font-family: "Times New Roman", serif; border: 1px solid #E0E0E0; box-shadow: 0 2px 5px rgba(0,0,0,0.05);}
-    .paper-title { font-size: 24px; text-align: center; font-weight: bold; margin-bottom: 5px; }
-    .paper-authors { text-align: center; font-style: italic; margin-bottom: 20px; font-size: 16px; }
-    .paper-abstract-title { font-weight: bold; text-align: center; text-transform: uppercase; font-size: 14px; margin-bottom: 10px; }
-    .paper-text { text-align: justify; line-height: 1.6; font-size: 15px; margin-bottom: 15px; }
-    .paper-list { font-size: 15px; line-height: 1.6; text-align: justify; }
+    /* Timeline Estilo Corporate */
+    .timeline { border-left: 3px solid #CBD5E1; margin-left: 20px; padding-left: 30px; position: relative; }
+    .timeline-item { position: relative; margin-bottom: 25px; }
+    .timeline-item::before {
+        content: ''; position: absolute; left: -39px; top: 4px; width: 14px; height: 14px;
+        border-radius: 50%; background: #FFFFFF; border: 3px solid #3B82F6; box-shadow: 0 0 0 4px rgba(59, 130, 246, 0.1);
+    }
+    .timeline-item.warning::before { border-color: #F59E0B; box-shadow: 0 0 0 4px rgba(245, 158, 11, 0.1); }
+    .timeline-item.danger::before { border-color: #EF4444; box-shadow: 0 0 0 4px rgba(239, 68, 68, 0.1); }
+    .timeline-date { font-size: 0.8rem; color: #64748B; font-weight: 700; margin-bottom: 8px; }
+    .timeline-content { background: #FFFFFF; padding: 18px; border-radius: 12px; border: 1px solid #E2E8F0; box-shadow: 0 2px 8px rgba(0,0,0,0.02);}
     
-    .ascii-diagram { background-color: #F4F6F8; border: 1px solid #d1d5db; border-radius: 6px; padding: 15px; margin: 20px 0; overflow-x: auto; }
-    .ascii-diagram pre { font-family: 'Roboto Mono', monospace; font-size: 12px; color: #374151; line-height: 1.2; margin: 0; }
+    /* Login Screen Centrado e Limpo */
+    .login-container {
+        background: #FFFFFF; padding: 50px; border-radius: 24px;
+        box-shadow: 0 20px 40px rgba(0, 0, 0, 0.08); text-align: center; max-width: 450px; margin: 0 auto;
+    }
+    
+    /* Tabs */
+    .stTabs [data-baseweb="tab-list"] { gap: 20px; border-bottom: 2px solid #E2E8F0; }
+    .stTabs [data-baseweb="tab"] { padding: 12px 20px; font-weight: 600; color: #64748B; font-size: 1rem;}
+    .stTabs [aria-selected="true"] { border-bottom: 3px solid #0F172A !important; color: #0F172A !important; background: transparent;}
     </style>
     """, unsafe_allow_html=True)
 
-# --- 4. CREDENCIAIS & FUNÇÕES DE DADOS ---
+# --- 4. FUNÇÕES DE DADOS E IA ---
 try:
     INFLUX_URL = st.secrets["INFLUX_URL"]
     INFLUX_TOKEN = st.secrets["INFLUX_TOKEN"]
     INFLUX_ORG = st.secrets["INFLUX_ORG"]
     INFLUX_BUCKET = st.secrets["INFLUX_BUCKET"]
-except Exception:
-    st.warning("⚠️ Configura os Secrets no Streamlit Cloud primeiro!")
+except: pass
 
 @st.cache_data
 def get_thresholds():
@@ -91,7 +101,7 @@ thresholds = get_thresholds()
 def fetch_data():
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-        query = f'from(bucket: "{INFLUX_BUCKET}") |> range(start: -30m) |> filter(fn: (r) => r["_measurement"] == "mqtt_consumer") |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")'
+        query = f'from(bucket: "{INFLUX_BUCKET}") |> range(start: -1h) |> filter(fn: (r) => r["_measurement"] == "mqtt_consumer") |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")'
         df = client.query_api().query_data_frame(query)
         if isinstance(df, list): df = pd.concat(df)
         return df if isinstance(df, pd.DataFrame) and not df.empty else pd.DataFrame()
@@ -99,52 +109,54 @@ def fetch_data():
 
 def processar_decisao(classe, voc):
     if any(f in str(classe).lower() for f in ["maca", "apple", "banana"]):
-        if voc < thresholds["clim_fresco"]: return "VERDE / FRESCO", "#2CA02C", "ESTADO: PRATELEIRA"
-        elif voc <= thresholds["clim_maduro"]: return "MADURO / ÓTIMO", "#F39C12", "ESTADO: PROMOÇÃO IMEDIATA"
-        else: return "PODRE / SENESCÊNCIA", "#E74C3C", "ESTADO: RETIRAR DE IMEDIATO"
+        if voc < thresholds["clim_fresco"]: return "VERDE / FRESCO", "#10B981", "ESTADO: PRATELEIRA", "success"
+        elif voc <= thresholds["clim_maduro"]: return "MADURO / ÓTIMO", "#F59E0B", "ESTADO: PROMOÇÃO IMEDIATA", "warning"
+        else: return "PODRE / SENESCÊNCIA", "#EF4444", "ESTADO: RETIRAR DE IMEDIATO", "danger"
     else: 
-        if voc < thresholds["nclim_firme"]: return "FIRME / BOA", "#2CA02C", "ESTADO: CONFORME"
-        elif voc <= thresholds["nclim_risco"]: return "RISCO DE DEGRADAÇÃO", "#F39C12", "ESTADO: VIGILÂNCIA REFORÇADA"
-        else: return "DEGRADADA", "#E74C3C", "ESTADO: REJEITAR LOTE"
+        if voc < thresholds["nclim_firme"]: return "FIRME / BOA", "#10B981", "ESTADO: CONFORME", "success"
+        elif voc <= thresholds["nclim_risco"]: return "RISCO DE DEGRADAÇÃO", "#F59E0B", "ESTADO: VIGILÂNCIA REFORÇADA", "warning"
+        else: return "DEGRADADA", "#EF4444", "ESTADO: REJEITAR LOTE", "danger"
 
 # ==========================================
 # ECRÃ 1: LOGIN
 # ==========================================
 if not st.session_state.logado:
-    st.markdown("<br><br><br>", unsafe_allow_html=True)
-    col1, col2, col3 = st.columns([1, 1, 1])
+    st.markdown("<br><br><br><br>", unsafe_allow_html=True)
+    st.markdown("""
+        <div class="login-container">
+            <h1 style="font-size: 3.5rem; margin-bottom: 0;">🍎</h1>
+            <h2 style="color: #0F172A; font-weight: 700; letter-spacing: -1px; margin-top: 10px;">RipeRadar OS</h2>
+            <p style="color: #64748B; margin-bottom: 30px;">Gestão Inteligente de Qualidade Hortofrutícola</p>
+        </div>
+    """, unsafe_allow_html=True)
+    
+    col1, col2, col3 = st.columns([1, 1.2, 1])
     with col2:
-        st.markdown("<div style='background: white; padding: 40px; border-radius: 12px; box-shadow: 0 4px 15px rgba(0,0,0,0.05); text-align: center; border: 1px solid #E0E0E0;'>", unsafe_allow_html=True)
-        st.markdown("<h1 style='font-size: 3rem;'>🍎</h1>", unsafe_allow_html=True)
-        st.markdown("<h2 style='color: #2C3E50; margin-bottom: 0;'>RipeRadar OS</h2>", unsafe_allow_html=True)
-        st.markdown("<p style='color: #7F8C8D; margin-bottom: 20px;'>Autenticação Corporativa</p>", unsafe_allow_html=True)
-        
         st.text_input("ID de Utilizador", key="user_input")
         st.text_input("Palavra-Passe", type="password", key="pass_input")
-        st.button("Aceder ao Sistema", on_click=verificar_login, use_container_width=True, type="primary")
-        st.markdown("</div>", unsafe_allow_html=True)
+        st.markdown("<br>", unsafe_allow_html=True)
+        st.button("Entrar no Sistema", on_click=verificar_login, use_container_width=True, type="primary")
 
 # ==========================================
-# ECRÃ 2: DASHBOARD PRINCIPAL (LOGADO)
+# ECRÃ 2: DASHBOARD
 # ==========================================
 else:
-    # --- MENU LATERAL ---
+    # --- MENU LATERAL PREMIUM ---
     with st.sidebar:
-        st.markdown("### 👤 Perfil Ativo")
-        st.info(f"**{st.session_state.cargo}**")
-        st.button("Terminar Sessão", on_click=logout, use_container_width=True)
-        st.divider()
-        st.markdown("**Status da Infraestrutura:**")
-        st.success("🟢 Edge Gateway: Online")
-        st.success("🟢 InfluxDB: Sincronizado")
-        st.success("🟢 Node 1 (Visão): Ativo")
-        st.success("🟢 Node 2 (Olfato): Ativo")
+        st.markdown(f"<h3 style='color: #0F172A; font-weight: 700;'>Bem-vindo,<br><span style='color: #3B82F6;'>{st.session_state.cargo}</span></h3>", unsafe_allow_html=True)
+        st.button("Sair da Conta", on_click=logout, use_container_width=True)
+        st.markdown("<br><hr style='border-color: #E2E8F0;'><br>", unsafe_allow_html=True)
+        
+        st.markdown("<p style='font-size: 0.85rem; font-weight: 600; color: #64748B; text-transform: uppercase;'>Infraestrutura IoT</p>", unsafe_allow_html=True)
+        st.markdown("🟢 **Gateway Edge** (Online)<br>🟢 **Nicla Sense** (Ativo)<br>🟢 **Nano 33 BLE** (Ativo)", unsafe_allow_html=True)
 
-    # --- DADOS E CABEÇALHO ---
+    # --- CARREGAR DADOS ---
     df = fetch_data()
-    st.markdown("<h2>RipeRadar <span style='color: #1F77B4; font-weight: 300;'>Retail Monitor</span></h2>", unsafe_allow_html=True)
     
-    tab_dash, tab_admin, tab_paper = st.tabs(["📊 Monitorização Real-Time", "⚙️ Calibração de IA", "📄 Arquitetura do Sistema"])
+    # Cabeçalho Principal
+    st.markdown("<h1 style='color: #0F172A; font-weight: 700; font-size: 2.2rem; letter-spacing: -1px;'>Painel de Monitorização</h1>", unsafe_allow_html=True)
+    
+    tab_dash, tab_admin = st.tabs(["Dashboard de Operações", "Calibração do Sistema"])
 
     # ---------------------------------------------------------
     # TAB 1: DASHBOARD
@@ -157,130 +169,131 @@ else:
             conf = float(latest.get('confianca', 0.0))
             temp = float(latest.get('temp', 0.0))
             hum = float(latest.get('hum', 0.0))
-            hpa = float(latest.get('hPa', 0.0))
             
-            estado, cor, acao = processar_decisao(fruta, voc)
+            estado, cor, acao, severidade = processar_decisao(fruta, voc)
 
-            # Cartão de Decisão (Visível para ambos)
-            st.markdown(f"""
-                <div class="action-card" style="border-top: 6px solid {cor};">
-                    <p style="color: #7F8C8D; text-transform: uppercase; font-size: 0.85rem; font-weight: bold; margin-bottom: 5px;">Lote em Análise: {fruta.upper().replace('_', ' ')} (Confiança IA: {conf*100 if conf <= 1 else conf:.1f}%)</p>
-                    <h1 style="color: {cor}; font-size: 3.5rem; margin: 0;">{estado}</h1>
-                    <h3 style="color: #34495E; margin-top: 5px;">{acao}</h3>
-                </div>
+            # --- LINHA SUPERIOR: AÇÃO + GAUGE VOC ---
+            col_acao, col_gauge = st.columns([1.5, 1])
+            
+            with col_acao:
+                st.markdown(f"""
+                    <div class="main-action-card" style="border-bottom: 8px solid {cor};">
+                        <div style="font-size: 1rem; color: #64748B; font-weight: 600; text-transform: uppercase; margin-bottom: 10px;">Lote em Análise: <span style="color: #0F172A;">{fruta.upper().replace('_', ' ')}</span></div>
+                        <h1 style="color: {cor}; font-size: 3.2rem; font-weight: 800; margin: 0; line-height: 1.1;">{estado}</h1>
+                        <h3 style="color: #334155; font-weight: 600; margin-top: 15px;">{acao}</h3>
+                    </div>
                 """, unsafe_allow_html=True)
-
-            # Métricas
-            c1, c2, c3, c4, c5 = st.columns(5)
-            c1.metric("ÍNDICE VOC", f"{voc/1000:.1f} kΩ")
-            c2.metric("TEMPERATURA", f"{temp:.1f} ºC")
-            c3.metric("HUMIDADE", f"{hum:.1f}%")
-            c4.metric("PRESSÃO", f"{hpa:.1f} hPa")
-            c5.metric("STATUS", "Vigilância Ativa")
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            # --- ZONA EXCLUSIVA DO CHEFE DE LOJA ---
-            if st.session_state.cargo == "Chefe de Loja":
-                st.subheader("📋 Painel de Gestão: Histórico Multidimensional")
-                col_l, col_r = st.columns([1.5, 1])
                 
-                with col_l:
-                    st.markdown("**Evolução Gasosa do Lote (Últimos 30m)**")
-                    if 'voc_gas' in df.columns:
-                        df_clean = df.dropna(subset=['voc_gas'])
-                        fig_voc = px.area(df_clean, x='_time', y='voc_gas', color_discrete_sequence=['#1F77B4'])
-                        fig_voc.update_layout(paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=0,r=0,t=10,b=0))
-                        st.plotly_chart(fig_voc, use_container_width=True)
+            with col_gauge:
+                # O Novo Gráfico Gauge de Alta Qualidade
+                limite_min = thresholds["clim_fresco"] if "maca" in fruta.lower() or "banana" in fruta.lower() else thresholds["nclim_firme"]
+                limite_max = thresholds["clim_maduro"] if "maca" in fruta.lower() or "banana" in fruta.lower() else thresholds["nclim_risco"]
+                
+                fig_gauge = go.Figure(go.Indicator(
+                    mode = "gauge+number",
+                    value = voc,
+                    number = {'suffix': " Ω", 'font': {'size': 35, 'color': '#0F172A', 'family': 'Inter'}},
+                    title = {'text': "NÍVEL DE VOC ATUAL", 'font': {'size': 14, 'color': '#64748B', 'family': 'Inter'}},
+                    gauge = {
+                        'axis': {'range': [None, 25000], 'tickwidth': 1, 'tickcolor': "#CBD5E1"},
+                        'bar': {'color': cor, 'thickness': 0.25},
+                        'bgcolor': "white",
+                        'borderwidth': 0,
+                        'steps': [
+                            {'range': [0, limite_min], 'color': "rgba(239, 68, 68, 0.15)"},    # Vermelho leve
+                            {'range': [limite_min, limite_max], 'color': "rgba(245, 158, 11, 0.15)"}, # Laranja leve
+                            {'range': [limite_max, 25000], 'color': "rgba(16, 185, 129, 0.15)"}  # Verde leve
+                        ]
+                    }
+                ))
+                fig_gauge.update_layout(height=250, margin=dict(l=20, r=20, t=30, b=10), paper_bgcolor='rgba(0,0,0,0)', font={'family': "Inter"})
+                st.plotly_chart(fig_gauge, use_container_width=True)
 
-                with col_r:
-                    st.markdown("**Assinatura Ambiental Atual**")
-                    radar_data = pd.DataFrame(dict(
-                        r=[temp * 3, hum, (hpa - 900) if hpa > 900 else 0, (voc / 200) if voc > 0 else 0, conf * 100 if conf <= 1 else conf],
-                        theta=['Temp', 'Hum', 'Pressão', 'VOC', 'IA Conf']
-                    ))
-                    fig_radar = px.line_polar(radar_data, r='r', theta='theta', line_close=True)
-                    fig_radar.update_traces(fill='toself', fillcolor='rgba(31, 119, 180, 0.2)', line_color='#1F77B4')
-                    fig_radar.update_layout(
-                        paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)',
-                        polar=dict(bgcolor='rgba(0,0,0,0)', radialaxis=dict(visible=False)),
-                        margin=dict(l=40, r=40, t=20, b=20)
-                    )
-                    st.plotly_chart(fig_radar, use_container_width=True)
+            # --- LINHA DO MEIO: CARTÕES HTML PREMIUM ---
+            c1, c2, c3, c4 = st.columns(4)
+            c1.markdown(f'<div class="premium-card"><div class="card-title">🔍 Confiança IA</div><div class="card-value">{conf*100 if conf <= 1 else conf:.1f} <span class="card-unit">%</span></div></div>', unsafe_allow_html=True)
+            c2.markdown(f'<div class="premium-card"><div class="card-title">🌡️ Temperatura</div><div class="card-value">{temp:.1f} <span class="card-unit">ºC</span></div></div>', unsafe_allow_html=True)
+            c3.markdown(f'<div class="premium-card"><div class="card-title">💧 Humidade</div><div class="card-value">{hum:.1f} <span class="card-unit">%</span></div></div>', unsafe_allow_html=True)
+            c4.markdown(f'<div class="premium-card"><div class="card-title">✅ Status de Rede</div><div class="card-value" style="color: #10B981; font-size: 1.5rem;">Sincronizado</div></div>', unsafe_allow_html=True)
+
+            st.markdown("<br><br>", unsafe_allow_html=True)
+
+            # --- ZONA DO CHEFE: GRÁFICO HISTÓRICO + TIMELINE ---
+            if st.session_state.cargo == "Chefe de Loja":
+                st.markdown("<h3 style='color: #0F172A; font-weight: 700; font-size: 1.5rem;'>Histórico de Degradação (Gestão)</h3>", unsafe_allow_html=True)
+                col_grafico, col_timeline = st.columns([1.8, 1])
+                
+                with col_grafico:
+                    st.markdown("<div class='premium-card'>", unsafe_allow_html=True)
+                    if 'voc_gas' in df.columns:
+                        df_clean = df.dropna(subset=['voc_gas']).sort_values('_time')
+                        fig_line = px.area(df_clean, x='_time', y='voc_gas', color_discrete_sequence=['#3B82F6'])
+                        fig_line.update_traces(fillcolor='rgba(59, 130, 246, 0.1)', line=dict(width=3))
+                        fig_line.update_layout(
+                            paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', 
+                            xaxis_title="", yaxis_title="Resistência VOC (Ω)",
+                            margin=dict(l=0, r=0, t=10, b=0),
+                            xaxis=dict(showgrid=False), yaxis=dict(gridcolor='#E2E8F0')
+                        )
+                        st.plotly_chart(fig_line, use_container_width=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                with col_timeline:
+                    st.markdown('<div class="timeline">', unsafe_allow_html=True)
+                    if 'voc_gas' in df.columns:
+                        df_sorted = df.sort_values(by='_time', ascending=False)
+                        eventos = 0
+                        for idx, row in df_sorted.iterrows():
+                            v_voc = float(row.get('voc_gas', 0))
+                            v_fruta = str(row.get('classe_dominante', ''))
+                            if v_voc > 0 and v_fruta:
+                                est, color, ac, sev = processar_decisao(v_fruta, v_voc)
+                                if sev in ["warning", "danger"] and eventos < 4:
+                                    d_time = row['_time'].strftime("%H:%M:%S")
+                                    st.markdown(f"""
+                                    <div class="timeline-item {sev}">
+                                        <div class="timeline-date">Hoje às {d_time}</div>
+                                        <div class="timeline-content">
+                                            <strong style="color: {color};">{est}</strong><br>
+                                            <span style="font-size: 0.9rem; color: #475569;">Alerta acionado devido à queda da resistência VOC para {v_voc/1000:.1f}kΩ.</span>
+                                        </div>
+                                    </div>
+                                    """, unsafe_allow_html=True)
+                                    eventos += 1
+                        if eventos == 0:
+                            st.markdown('<div class="timeline-item"><div class="timeline-content" style="border-left: 4px solid #10B981;"><strong>Lote Estável</strong><br>Sem alertas recentes.</div></div>', unsafe_allow_html=True)
+                    st.markdown('</div>', unsafe_allow_html=True)
         else:
-            st.info("A aguardar dados da Edge Gateway...")
+            st.info("A aguardar ingestão de dados da Edge Gateway...")
 
     # ---------------------------------------------------------
     # TAB 2: CALIBRAÇÃO (ADMIN ONLY)
     # ---------------------------------------------------------
     with tab_admin:
-        st.header("⚙️ Calibração de Limiares (Late Fusion)")
         if st.session_state.cargo == "Chefe de Loja":
+            st.markdown("<div class='premium-card'>", unsafe_allow_html=True)
             with st.form("calibration_form"):
-                st.markdown("Ajuste dinâmico dos parâmetros de inferência baseados na resposta do sensor semicondutor (MOS).")
-                st.divider()
+                st.markdown("<h3 style='margin-top:0;'>Ajuste de Limiares do Sensor MOS</h3>", unsafe_allow_html=True)
+                st.markdown("<p style='color: #64748B;'>Defina os valores de corte de resistência elétrica (em Ohms) para calibrar a lógica de Late Fusion.</p>", unsafe_allow_html=True)
                 col_a, col_b = st.columns(2)
                 with col_a:
-                    st.markdown("### 🍌 Frutos Climatéricos")
-                    clim_f = st.slider("Verde ➡️ Maduro (VOC Ω)", 10000, 15000, thresholds["clim_fresco"])
-                    clim_m = st.slider("Maduro ➡️ Podre (VOC Ω)", 15000, 20000, thresholds["clim_maduro"])
+                    st.markdown("#### Frutos Climatéricos (Banana/Maçã)")
+                    clim_f = st.slider("Fresco ➡️ Maduro", 10000, 15000, thresholds["clim_fresco"])
+                    clim_m = st.slider("Maduro ➡️ Podre", 15000, 20000, thresholds["clim_maduro"])
                 with col_b:
-                    st.markdown("### 🍊 Não-Climatéricos")
-                    nclim_f = st.slider("Firme ➡️ Risco (VOC Ω)", 10000, 14000, thresholds["nclim_firme"])
-                    nclim_r = st.slider("Risco ➡️ Degradada (VOC Ω)", 14000, 18000, thresholds["nclim_risco"])
+                    st.markdown("#### Frutos Não-Climatéricos (Laranja)")
+                    nclim_f = st.slider("Firme ➡️ Risco", 10000, 14000, thresholds["nclim_firme"])
+                    nclim_r = st.slider("Risco ➡️ Degradada", 14000, 18000, thresholds["nclim_risco"])
                     
-                if st.form_submit_button("Guardar Calibração", type="primary"):
+                if st.form_submit_button("Aplicar Nova Calibração", type="primary"):
                     get_thresholds.clear()
                     def get_thresholds(): return {"clim_fresco": clim_f, "clim_maduro": clim_m, "nclim_firme": nclim_f, "nclim_risco": nclim_r}
                     thresholds = get_thresholds()
-                    st.success("Configurações atualizadas com sucesso!")
+                    st.success("Configurações aplicadas na Edge Gateway e Cloud.")
+            st.markdown("</div>", unsafe_allow_html=True)
         else:
-            st.error("🔒 Acesso Restrito. Apenas utilizadores com perfil de 'Chefe de Loja' têm permissão para alterar calibrações de inteligência artificial.")
+            st.error("🔒 Área de Administração: Acesso barrado a perfis operacionais.")
 
-    # ---------------------------------------------------------
-    # TAB 3: PUBLICAÇÃO CIENTÍFICA (DOCUMENTAÇÃO)
-    # ---------------------------------------------------------
-    with tab_paper:
-        html_paper = """<div class="paper-box">
-        <div class="paper-title">RipeRadar: Multimodal Edge Fusion for Real-Time Fruit Spoilage Detection</div>
-        <div class="paper-authors">Eduarda Pereira, Gonçalo Ferreira, Gonçalo Magalhães<br>Department of Informatics, University of Minho, Braga, Portugal</div>
-        <div class="paper-abstract-title">Abstract</div>
-        <p class="paper-text">A degradação da qualidade hortofrutícola durante a cadeia de abastecimento e no retalho representa um desafio logístico e económico significativo, contribuindo para elevados índices de desperdício alimentar. Para superar as limitações de infraestruturas centralizadas, propomos o <b>RipeRadar</b>, uma arquitetura <i>Internet of Things (IoT)</i> descentralizada para monitorização multimodal.</p>
-        <p class="paper-text">O RipeRadar transpõe o processamento analítico para a <i>Edge</i> da rede através de modelos <i>Tiny Machine Learning (TinyML)</i> executados diretamente em microcontroladores. A inovação central reside numa estratégia de <b>Late Fusion</b> (Decision-Level Fusion) que correlaciona inferências visuais de uma rede neuronal (via OV7675 no Arduino Nano 33 BLE) com leituras contínuas de compostos orgânicos voláteis (VOCs) extraídas do sensor BME688 (Arduino Nicla Sense ME).</p>
-        <p class="paper-text">A orquestração assíncrona é mediada via Bluetooth Low Energy (BLE) por um <i>Edge Gateway</i> (Raspberry Pi 5), que publica os dados fundidos num <i>Message Broker</i> (HiveMQ) via protocolo MQTT. A ingestão na base de dados temporal (InfluxDB) é automatizada pelo serviço Telegraf, culminando nesta plataforma analítica. Este ecossistema garante autonomia operacional, baixo consumo de largura de banda e mitigação de falsos positivos face a ambiguidades visuais no retalho inteligente.</p>
-        <hr style="margin: 30px 0; border: 1px solid #E0E0E0;">
-        <h3 style="font-size: 18px; margin-bottom: 10px; color: #111;">System Architecture</h3>
-        <div class="ascii-diagram">
-        <pre>
-[CAMADA DE PERCEÇÃO]           [CAMADA GATEWAY]              [CAMADA CLOUD / APLICAÇÃO]
-
-+---------------------+
-| Arduino Nano 33 BLE |
-| (Visão / CNN)       | --(BLE)--\\
-+---------------------+           \\
-                                   v
-                            +----------------+  (MQTT)   +----------------+       +-----------------+
-                            | Raspberry Pi 5 | --------> | HiveMQ Cloud   |       | Streamlit Cloud |
-                            | (Script MQTT)  |  (TLS)    | (Broker MQTT)  |       | (Dashboard UI)  |
-                            +----------------+           +----------------+       +-----------------+
-                                   ^                             |                        ^
-                                  /                        (Telegraf Sub)                 | (Query)
-+---------------------+          /                               v                        |
-| Nicla Sense ME      | --(BLE)-/                        +----------------+---------------+
-| (BME688 - VOC/Temp) |                                  | InfluxDB Cloud |
-+---------------------+                                  | (Time-Series)  |
-                                                         +----------------+
-        </pre>
-        </div>
-        <ul class="paper-list">
-        <li><b>Camada de Perceção (Periphery):</b> Arduino Nano 33 BLE (Visão / CNN) e Arduino Nicla Sense ME (Olfação Digital).</li>
-        <li><b>Camada Gateway:</b> Raspberry Pi 5 atua como agregador local, fundindo os dados e publicando via MQTT (QoS 1).</li>
-        <li><b>Camada de Mensagens:</b> HiveMQ Cloud gere a conectividade segura (TLS, porta 8883) servindo como <i>Broker</i> central.</li>
-        <li><b>Camada de Armazenamento e UI:</b> Telegraf injeta as métricas no InfluxDB Cloud, consumido em tempo real pelo Streamlit.</li>
-        </ul>
-        </div>"""
-        st.markdown(html_paper, unsafe_allow_html=True)
-
-    # --- AUTO REFRESH (Apenas se estiver logado) ---
+    # Auto-Refresh dinâmico
     time.sleep(5)
     st.rerun()
