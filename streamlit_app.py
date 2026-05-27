@@ -2,7 +2,6 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import numpy as np
-import random
 import time
 from datetime import datetime, timedelta, timezone
 from influxdb_client import InfluxDBClient
@@ -233,10 +232,29 @@ if 'thresholds' not in st.session_state:
 
 thresholds = st.session_state.thresholds
 
-def fetch_data():
+# ── LEITURA REAL DA BASE DE DADOS (INFLUXDB) ──
+def fetch_live_data():
+    """Lê apenas a última hora de dados para o dashboard ao vivo."""
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
         query  = (f'from(bucket: "{INFLUX_BUCKET}") |> range(start: -1h)'
+                  f' |> filter(fn: (r) => r["_measurement"] == "mqtt_consumer")'
+                  f' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")')
+        df = client.query_api().query_data_frame(query)
+        if isinstance(df, list): df = pd.concat(df)
+        if isinstance(df, pd.DataFrame) and not df.empty:
+            df['_time'] = pd.to_datetime(df['_time'], utc=True)
+            return df
+        return pd.DataFrame()
+    except:
+        return pd.DataFrame()
+
+@st.cache_data(ttl=300) # Mantém em memória durante 5 minutos para o site não ficar lento
+def fetch_history_data(dias):
+    """Lê os dados reais do passado (ex: últimos 7 ou 30 dias)."""
+    try:
+        client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+        query  = (f'from(bucket: "{INFLUX_BUCKET}") |> range(start: -{dias}d)'
                   f' |> filter(fn: (r) => r["_measurement"] == "mqtt_consumer")'
                   f' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")')
         df = client.query_api().query_data_frame(query)
@@ -258,47 +276,6 @@ def processar_decisao(classe, voc):
         if voc < t["nclim_firme"]:    return "FIRME / BOA",          "#00E5B4", "CONFORME",            "success"
         elif voc <= t["nclim_risco"]: return "RISCO DE DEGRADAÇÃO",  "#FFB800", "VIGILÂNCIA REFORÇADA","warning"
         else:                          return "DEGRADADA",            "#FF4455", "REJEITAR LOTE",       "danger"
-
-@st.cache_data(ttl=600)
-def gerar_historico_simulado(dias: int = 90):
-    random.seed(42)
-    np.random.seed(42)
-    now    = datetime.now(timezone.utc)
-    frutas = ["Maca", "Banana", "Laranja"]
-    secoes = {"Maca":"Sec. A — Frutas Frescas", "Banana":"Sec. A — Frutas Frescas", "Laranja":"Sec. B — Citrinos"}
-    lotes_base = {"Maca":"LOT-MA", "Banana":"LOT-BA", "Laranja":"LOT-LA"}
-    lote_cnt   = {"Maca": 1, "Banana": 1, "Laranja": 1}
-
-    registos = []
-    for fruta in frutas:
-        for dia in range(dias, 0, -1):
-            data_base = now - timedelta(days=dia)
-            if data_base.weekday() == 0: lote_cnt[fruta] += 1
-            lote_id = f"{lotes_base[fruta]}-{lote_cnt[fruta]:03d}"
-
-            for turno_h in [8, 14, 20]:
-                ts = data_base.replace(hour=turno_h, minute=random.randint(0, 30), second=0, microsecond=0)
-                dias_lote = (now - ts).days % 7
-
-                if fruta in ["Maca", "Banana"]:
-                    voc = max(7500, 19500 - dias_lote * 950 + np.random.normal(0, 550))
-                else:
-                    voc = max(8500, 18500 - dias_lote * 720 + np.random.normal(0, 480))
-
-                temp = round(np.random.normal(4.5, 0.5), 1)
-                hum  = round(np.random.normal(87, 3), 1)
-                conf = round(min(0.99, max(0.72, np.random.normal(0.91, 0.05))), 2)
-
-                estado, cor_hex, acao, sev = processar_decisao(fruta, voc)
-
-                registos.append({
-                    "timestamp":  ts, "fruta": fruta, "lote": lote_id, "secao": secoes[fruta],
-                    "voc_gas": round(voc), "temp": temp, "hum": hum, "confianca": conf,
-                    "estado": estado, "cor": cor_hex, "acao": acao, "severidade": sev,
-                    "turno": {8:"Manhã", 14:"Tarde", 20:"Noite"}[turno_h],
-                })
-
-    return pd.DataFrame(registos).sort_values("timestamp", ascending=False).reset_index(drop=True)
 
 PLOT_LAYOUT = dict(
     paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=10, r=10, t=24, b=10),
@@ -353,7 +330,7 @@ if not st.session_state.logado:
 # ══════════════════════════════════════════════════════════════
 else:
     # ── VERIFICAÇÃO DE TELEMETRIA RECENTE (ÚLTIMOS 3 MIN) ─────
-    df_live = fetch_data()
+    df_live = fetch_live_data()
     agora = datetime.now(timezone.utc)
     limite_3min = agora - timedelta(minutes=3)
     
@@ -395,9 +372,10 @@ else:
             </div>
         """, unsafe_allow_html=True)
         st.button("↩ Terminar Sessão", on_click=logout, use_container_width=True)
-
+        
+        st.markdown("<div class='sb-section-title' style='margin-top:30px;'>Estado do Hardware</div>", unsafe_allow_html=True)
         st.markdown(f"""
-            <div class="sb-row" style="margin-top:14px;">
+            <div class="sb-row" style="margin-top:10px;">
                 <span class="sb-lbl">InfluxDB</span>
                 <span class="sb-val" style="color:{color_on if influx_online else color_off};">{lbl_on if influx_online else lbl_off}</span>
             </div>
@@ -416,8 +394,6 @@ else:
         """, unsafe_allow_html=True)
         st.markdown("<div class='sb-section-title' style='margin-top:20px;'>Telemetria</div>", unsafe_allow_html=True)
         auto_refresh = st.toggle("Live Refresh (5s)", value=True)
-
-    df_hist = gerar_historico_simulado(dias=90)
 
     # ── PAGE HEADER ───────────────────────────────────────────
     if is_live:
@@ -510,9 +486,7 @@ else:
 
             st.markdown("""<div class="section-header"><h3>Evolução VOC — Última Hora</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
 
-            # O Gráfico agora apenas lê os dados em tempo real
             df_plot = df_live.dropna(subset=['voc_gas']).sort_values('_time')
-            
             fig_line = go.Figure()
             fig_line.add_trace(go.Scatter(
                 x=df_plot['_time'], y=df_plot['voc_gas'],
@@ -541,7 +515,7 @@ else:
             """, unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════
-    #  TAB 2 — ANÁLISE HISTÓRICA (Chefe de Loja)
+    #  TAB 2 — ANÁLISE HISTÓRICA (APENAS DADOS REAIS DO INFLUX)
     # ══════════════════════════════════════════════════════════════
     if st.session_state.cargo == "Chefe de Loja":
         with tab_time:
@@ -549,7 +523,8 @@ else:
             with col_f1:
                 periodo = st.selectbox("Período", ["Últimos 7 dias","Últimos 30 dias","Últimos 90 dias"], index=1)
             with col_f2:
-                fruta_filtro = st.selectbox("Produto", ["Todos","Maca","Banana","Laranja"])
+                # Agora deixamos os frutos padrão mais genéricos para não causar bugs se a BD estiver vazia
+                fruta_filtro = st.selectbox("Produto", ["Todos", "maca", "banana", "laranja"]) 
             with col_f3:
                 sev_filtro = st.multiselect(
                     "Mostrar estados",
@@ -558,188 +533,200 @@ else:
                     format_func=lambda x: {"success":"✅ Conforme","warning":"⚠️ Atenção","danger":"🔴 Crítico"}[x]
                 )
 
-            dias_map = {"Últimos 7 dias":7,"Últimos 30 dias":30,"Últimos 90 dias":90}
-            corte    = datetime.now(timezone.utc) - timedelta(days=dias_map[periodo])
-
-            df_periodo = df_hist[df_hist["timestamp"] >= corte].copy()
-            if fruta_filtro != "Todos":
-                df_periodo = df_periodo[df_periodo["fruta"] == fruta_filtro]
-
-            df_eventos = df_periodo[df_periodo["severidade"].isin(sev_filtro)].copy() if sev_filtro else df_periodo.copy()
-
-            st.markdown("<br>", unsafe_allow_html=True)
-
-            total          = len(df_periodo)
-            n_criticos     = len(df_periodo[df_periodo["severidade"]=="danger"])
-            n_atencao      = len(df_periodo[df_periodo["severidade"]=="warning"])
-            n_ok           = len(df_periodo[df_periodo["severidade"]=="success"])
-            pct_ok         = round(n_ok / total * 100, 1) if total > 0 else 0
-            lotes_criticos = df_periodo[df_periodo["severidade"]=="danger"]["lote"].nunique()
-
-            st.markdown(f"""
-            <div class="kpi-row">
-                <div class="kpi-card"><div class="kpi-num" style="color:#E8EEF8;">{total}</div><div class="kpi-lbl">Leituras Totais</div></div>
-                <div class="kpi-card"><div class="kpi-num" style="color:#FF4455;">{n_criticos}</div><div class="kpi-lbl">Alertas Críticos</div></div>
-                <div class="kpi-card"><div class="kpi-num" style="color:#FFB800;">{n_atencao}</div><div class="kpi-lbl">Em Atenção</div></div>
-                <div class="kpi-card"><div class="kpi-num" style="color:#00E5B4;">{pct_ok}%</div><div class="kpi-lbl">Taxa Conformidade</div></div>
-                <div class="kpi-card"><div class="kpi-num" style="color:#FF4455;">{lotes_criticos}</div><div class="kpi-lbl">Lotes Rejeitados</div></div>
-            </div>
-            """, unsafe_allow_html=True)
-
-            st.markdown("""<div class="section-header"><h3>Evolução da Resistência VOC por Produto</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
-
-            palette = {"Maca":"#00E5B4","Banana":"#FFB800","Laranja":"#FF7A45"}
-            df_daily = (
-                df_periodo.assign(dia=lambda d: d["timestamp"].dt.date)
-                .groupby(["dia","fruta"])["voc_gas"].mean().reset_index()
-            )
-
-            fig_voc = go.Figure()
-            for f_nome in df_daily["fruta"].unique():
-                dd = df_daily[df_daily["fruta"]==f_nome]
-                fig_voc.add_trace(go.Scatter(
-                    x=dd["dia"], y=dd["voc_gas"], mode='lines', name=f_nome,
-                    line=dict(color=palette.get(f_nome,"#8BA0BC"), width=2.5, shape='spline'),
-                    fill='tozeroy',
-                    fillcolor="rgba(0,0,0,0)",
-                    hovertemplate=f'<b>%{{x}}</b><br>{f_nome}: %{{y:.0f}} Ω<extra></extra>'
-                ))
-
-            fig_voc.add_hline(y=thresholds["clim_fresco"], line_dash="dot", line_color="rgba(255,184,0,0.35)", annotation_text="Limiar Maduro", annotation_font_color="#FFB800", annotation_font_size=10)
-            fig_voc.add_hline(y=thresholds["clim_maduro"]*0.76, line_dash="dot", line_color="rgba(255,68,85,0.35)", annotation_text="Limiar Crítico", annotation_font_color="#FF4455", annotation_font_size=10)
-
-            layout_voc = {**PLOT_LAYOUT, "height": 300, "yaxis_title": "Resistência (Ω)"}
-            fig_voc.update_layout(**layout_voc)
-            st.markdown("<div class='chart-wrap'>", unsafe_allow_html=True)
-            st.plotly_chart(fig_voc, use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown("<br>", unsafe_allow_html=True)
-            col_g2, col_g3 = st.columns([3, 2])
-
-            with col_g2:
-                st.markdown("""<div class="section-header"><h3>Alertas por Semana</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
-
-                df_sev_week = (
-                    df_periodo
-                    .assign(semana=lambda d: d["timestamp"].dt.to_period("W").apply(lambda p: str(p.start_time.date())))
-                    .groupby(["semana","severidade"]).size().reset_index(name="n")
-                )
-                sev_colors = {"success":"#00E5B4","warning":"#FFB800","danger":"#FF4455"}
-                sev_labels = {"success":"Conforme","warning":"Atenção","danger":"Crítico"}
-
-                fig_bar = go.Figure()
-                for s in ["success","warning","danger"]:
-                    dd = df_sev_week[df_sev_week["severidade"]==s]
-                    if not dd.empty:
-                        fig_bar.add_trace(go.Bar(
-                            x=dd["semana"], y=dd["n"], name=sev_labels[s],
-                            marker_color=sev_colors[s], opacity=0.85,
-                            hovertemplate='%{x}<br>' + sev_labels[s] + ': %{y}<extra></extra>'
-                        ))
-                layout_bar = {**PLOT_LAYOUT, "height":280, "barmode":"stack", "xaxis": {**PLOT_LAYOUT["xaxis"], "tickangle":-30}}
-                fig_bar.update_layout(**layout_bar)
-                st.markdown("<div class='chart-wrap'>", unsafe_allow_html=True)
-                st.plotly_chart(fig_bar, use_container_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            with col_g3:
-                st.markdown("""<div class="section-header"><h3>Alertas por Produto</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
-
-                df_pie = (
-                    df_periodo[df_periodo["severidade"].isin(["warning","danger"])]
-                    .groupby("fruta").size().reset_index(name="n")
-                )
-                fig_pie = go.Figure(go.Pie(
-                    labels=df_pie["fruta"], values=df_pie["n"], hole=0.6,
-                    marker=dict(colors=["#00E5B4","#FFB800","#FF7A45"], line=dict(color="#080C14",width=2)),
-                    textfont=dict(family='DM Sans', size=12, color='#E8EEF8'),
-                    hovertemplate='<b>%{label}</b><br>%{value} alertas (%{percent})<extra></extra>'
-                ))
-                fig_pie.update_layout(
-                    paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=10,r=10,t=24,b=10), height=280,
-                    legend=dict(font=dict(color='#8BA0BC',family='DM Sans'),bgcolor='rgba(0,0,0,0)'),
-                    annotations=[dict(text='Alertas', x=0.5, y=0.5, font_size=12, showarrow=False, font_color='#5A7090', font_family='Space Mono')]
-                )
-                st.markdown("<div class='chart-wrap'>", unsafe_allow_html=True)
-                st.plotly_chart(fig_pie, use_container_width=True)
-                st.markdown("</div>", unsafe_allow_html=True)
-
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("""<div class="section-header"><h3>Registo de Eventos de Qualidade</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
-            st.markdown("""
-                <p style='font-size:0.85rem;color:var(--txt-muted);margin-bottom:20px;'>
-                Eventos agrupados por <strong style='color:var(--txt-sub);'>dia e lote</strong>.
-                Cada entrada representa um ciclo de monitorização completo (turnos Manhã/Tarde/Noite).
-                </p>
-            """, unsafe_allow_html=True)
-
-            df_tl = df_eventos[df_eventos["severidade"].isin(["warning","danger"])].copy()
-
-            if df_tl.empty:
-                st.info("✅ Sem eventos de alerta para os filtros selecionados.")
+            dias_map = {"Últimos 7 dias":7, "Últimos 30 dias":30, "Últimos 90 dias":90}
+            
+            # ── FETCH DADOS REAIS ──
+            df_hist_real = fetch_history_data(dias_map[periodo])
+            
+            if df_hist_real.empty or 'classe_dominante' not in df_hist_real.columns or 'voc_gas' not in df_hist_real.columns:
+                st.warning("📊 Não existem dados reais suficientes no InfluxDB para gerar a análise histórica neste período.")
             else:
-                df_tl["dia_str"]  = df_tl["timestamp"].dt.strftime("%A, %d de %B de %Y")
-                df_tl["dia_date"] = df_tl["timestamp"].dt.date
-                dias_unicos = df_tl["dia_date"].drop_duplicates().sort_values(ascending=False).head(14)
+                # Removemos dados quebrados para garantir que nada crascha
+                df_periodo = df_hist_real.dropna(subset=['voc_gas', 'classe_dominante']).copy()
+                
+                # Filtro de Produto
+                if fruta_filtro != "Todos":
+                    df_periodo = df_periodo[df_periodo["classe_dominante"].str.lower() == fruta_filtro.lower()]
 
-                st.markdown('<div class="tl-wrap">', unsafe_allow_html=True)
-                for dia_date in dias_unicos:
-                    grupo_dia = df_tl[df_tl["dia_date"] == dia_date]
-                    dia_label = grupo_dia.iloc[0]["dia_str"]
-                    n_crit_dia = len(grupo_dia[grupo_dia["severidade"]=="danger"])
-                    dot_cls    = "danger" if n_crit_dia > 0 else "warn"
-                    cor_dia    = "#FF4455" if n_crit_dia > 0 else "#FFB800"
+                if df_periodo.empty:
+                    st.info(f"Sem leituras reais para a seleção atual.")
+                else:
+                    # Aplicar a classificação aos dados reais
+                    resultados = df_periodo.apply(lambda r: processar_decisao(r['classe_dominante'], r['voc_gas']), axis=1)
+                    df_periodo['estado'] = [r[0] for r in resultados]
+                    df_periodo['cor'] = [r[1] for r in resultados]
+                    df_periodo['acao'] = [r[2] for r in resultados]
+                    df_periodo['severidade'] = [r[3] for r in resultados]
 
-                    badge_html = f"<span class='tl-badge' style='color:#FF4455;border-color:rgba(255,68,85,0.3);'>⬤ {n_crit_dia} críticos</span>" if n_crit_dia > 0 else ""
+                    df_eventos = df_periodo[df_periodo["severidade"].isin(sev_filtro)].copy() if sev_filtro else df_periodo.copy()
 
+                    st.markdown("<br>", unsafe_allow_html=True)
+
+                    total          = len(df_periodo)
+                    n_criticos     = len(df_periodo[df_periodo["severidade"]=="danger"])
+                    n_atencao      = len(df_periodo[df_periodo["severidade"]=="warning"])
+                    n_ok           = len(df_periodo[df_periodo["severidade"]=="success"])
+                    pct_ok         = round(n_ok / total * 100, 1) if total > 0 else 0
+                    
                     st.markdown(f"""
-                    <div class="tl-item">
-                        <div class="tl-dot {dot_cls}"></div>
-                        <div class="tl-time">📅 {dia_label.upper()}</div>
-                        <div class="tl-body">
-                            <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                                <span style="font-weight:700;color:{cor_dia};">{len(grupo_dia)} eventos</span>
-                                {badge_html}
-                            </div>
+                    <div class="kpi-row">
+                        <div class="kpi-card"><div class="kpi-num" style="color:#E8EEF8;">{total}</div><div class="kpi-lbl">Leituras Totais</div></div>
+                        <div class="kpi-card"><div class="kpi-num" style="color:#FF4455;">{n_criticos}</div><div class="kpi-lbl">Alertas Críticos</div></div>
+                        <div class="kpi-card"><div class="kpi-num" style="color:#FFB800;">{n_atencao}</div><div class="kpi-lbl">Em Atenção</div></div>
+                        <div class="kpi-card"><div class="kpi-num" style="color:#00E5B4;">{pct_ok}%</div><div class="kpi-lbl">Taxa Conformidade</div></div>
+                    </div>
                     """, unsafe_allow_html=True)
 
-                    for lote_id, g_lote in grupo_dia.groupby("lote"):
-                        g_lote   = g_lote.sort_values("timestamp")
-                        pior     = g_lote.sort_values("voc_gas").iloc[0]
-                        turnos   = " · ".join(g_lote["turno"].unique())
-                        voc_med  = g_lote["voc_gas"].mean()
-                        temp_med = g_lote["temp"].mean()
-                        cor_ev   = pior["cor"]
-                        trend    = "↘ A degradar" if g_lote["voc_gas"].iloc[-1] < g_lote["voc_gas"].iloc[0] else "↗ Estável"
-                        trend_c  = "#FF4455" if "degradar" in trend else "#00E5B4"
+                    st.markdown("""<div class="section-header"><h3>Evolução da Resistência VOC por Produto</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
 
-                        st.markdown(f"""
-                        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;">
-                            <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                                <div>
-                                    <span style="font-family:var(--mono);font-size:0.68rem;color:var(--txt-muted);">LOTE&nbsp;</span>
-                                    <span style="font-family:var(--mono);font-size:0.82rem;color:var(--txt);font-weight:700;">{lote_id}</span>
-                                    &nbsp;&nbsp;
-                                    <span style="font-size:0.8rem;color:var(--txt-sub);">{pior['secao']}</span>
+                    palette = {"maca":"#00E5B4","banana":"#FFB800","laranja":"#FF7A45"}
+                    df_daily = (
+                        df_periodo.assign(dia=lambda d: d["_time"].dt.date)
+                        .groupby(["dia","classe_dominante"])["voc_gas"].mean().reset_index()
+                    )
+
+                    fig_voc = go.Figure()
+                    for f_nome in df_daily["classe_dominante"].unique():
+                        dd = df_daily[df_daily["classe_dominante"]==f_nome]
+                        # Usa a palette se o nome bater certo, senao usa azul padrao
+                        cor_linha = palette.get(f_nome.lower(), "#8BA0BC") 
+                        fig_voc.add_trace(go.Scatter(
+                            x=dd["dia"], y=dd["voc_gas"], mode='lines+markers', name=f_nome.capitalize(),
+                            line=dict(color=cor_linha, width=2.5, shape='spline'),
+                            fill='tozeroy', fillcolor="rgba(0,0,0,0)",
+                            hovertemplate=f'<b>%{{x}}</b><br>{f_nome.capitalize()}: %{{y:.0f}} Ω<extra></extra>'
+                        ))
+
+                    fig_voc.add_hline(y=thresholds["clim_fresco"], line_dash="dot", line_color="rgba(255,184,0,0.35)", annotation_text="Limiar Maduro (Clim)", annotation_font_color="#FFB800", annotation_font_size=10)
+                    fig_voc.add_hline(y=thresholds["clim_maduro"]*0.76, line_dash="dot", line_color="rgba(255,68,85,0.35)", annotation_text="Limiar Crítico (Clim)", annotation_font_color="#FF4455", annotation_font_size=10)
+
+                    layout_voc = {**PLOT_LAYOUT, "height": 300, "yaxis_title": "Resistência (Ω)"}
+                    fig_voc.update_layout(**layout_voc)
+                    st.markdown("<div class='chart-wrap'>", unsafe_allow_html=True)
+                    st.plotly_chart(fig_voc, use_container_width=True)
+                    st.markdown("</div>", unsafe_allow_html=True)
+
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    col_g2, col_g3 = st.columns([3, 2])
+
+                    with col_g2:
+                        st.markdown("""<div class="section-header"><h3>Alertas por Semana</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
+                        df_sev_week = (
+                            df_periodo.assign(semana=lambda d: d["_time"].dt.to_period("W").apply(lambda p: str(p.start_time.date())))
+                            .groupby(["semana","severidade"]).size().reset_index(name="n")
+                        )
+                        sev_colors = {"success":"#00E5B4","warning":"#FFB800","danger":"#FF4455"}
+                        sev_labels = {"success":"Conforme","warning":"Atenção","danger":"Crítico"}
+
+                        fig_bar = go.Figure()
+                        for s in ["success","warning","danger"]:
+                            dd = df_sev_week[df_sev_week["severidade"]==s]
+                            if not dd.empty:
+                                fig_bar.add_trace(go.Bar(
+                                    x=dd["semana"], y=dd["n"], name=sev_labels[s],
+                                    marker_color=sev_colors[s], opacity=0.85,
+                                    hovertemplate='%{x}<br>' + sev_labels[s] + ': %{y}<extra></extra>'
+                                ))
+                        layout_bar = {**PLOT_LAYOUT, "height":280, "barmode":"stack", "xaxis": {**PLOT_LAYOUT["xaxis"], "tickangle":-30}}
+                        fig_bar.update_layout(**layout_bar)
+                        st.markdown("<div class='chart-wrap'>", unsafe_allow_html=True)
+                        st.plotly_chart(fig_bar, use_container_width=True)
+                        st.markdown("</div>", unsafe_allow_html=True)
+
+                    with col_g3:
+                        st.markdown("""<div class="section-header"><h3>Alertas por Produto</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
+                        df_pie = (
+                            df_periodo[df_periodo["severidade"].isin(["warning","danger"])]
+                            .groupby("classe_dominante").size().reset_index(name="n")
+                        )
+                        if not df_pie.empty:
+                            fig_pie = go.Figure(go.Pie(
+                                labels=df_pie["classe_dominante"], values=df_pie["n"], hole=0.6,
+                                marker=dict(colors=["#00E5B4","#FFB800","#FF7A45"], line=dict(color="#080C14",width=2)),
+                                textfont=dict(family='DM Sans', size=12, color='#E8EEF8'),
+                                hovertemplate='<b>%{label}</b><br>%{value} alertas (%{percent})<extra></extra>'
+                            ))
+                            fig_pie.update_layout(
+                                paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=10,r=10,t=24,b=10), height=280,
+                                legend=dict(font=dict(color='#8BA0BC',family='DM Sans'),bgcolor='rgba(0,0,0,0)'),
+                                annotations=[dict(text='Alertas', x=0.5, y=0.5, font_size=12, showarrow=False, font_color='#5A7090', font_family='Space Mono')]
+                            )
+                            st.markdown("<div class='chart-wrap'>", unsafe_allow_html=True)
+                            st.plotly_chart(fig_pie, use_container_width=True)
+                            st.markdown("</div>", unsafe_allow_html=True)
+                        else:
+                            st.info("Sem dados de alertas para gráfico circular.")
+
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    st.markdown("""<div class="section-header"><h3>Registo de Eventos de Qualidade</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
+                    st.markdown("""
+                        <p style='font-size:0.85rem;color:var(--txt-muted);margin-bottom:20px;'>
+                        As leituras reais são agrupadas por <strong>dia</strong> e por <strong>fruto detetado</strong>.
+                        </p>
+                    """, unsafe_allow_html=True)
+
+                    df_tl = df_eventos[df_eventos["severidade"].isin(["warning","danger"])].copy()
+
+                    if df_tl.empty:
+                        st.info("✅ Sem eventos de alerta para os filtros selecionados.")
+                    else:
+                        df_tl["dia_str"]  = df_tl["_time"].dt.strftime("%d de %B de %Y")
+                        df_tl["dia_date"] = df_tl["_time"].dt.date
+                        dias_unicos = df_tl["dia_date"].drop_duplicates().sort_values(ascending=False).head(14)
+
+                        st.markdown('<div class="tl-wrap">', unsafe_allow_html=True)
+                        for dia_date in dias_unicos:
+                            grupo_dia = df_tl[df_tl["dia_date"] == dia_date]
+                            dia_label = grupo_dia.iloc[0]["dia_str"]
+                            n_crit_dia = len(grupo_dia[grupo_dia["severidade"]=="danger"])
+                            dot_cls    = "danger" if n_crit_dia > 0 else "warn"
+                            cor_dia    = "#FF4455" if n_crit_dia > 0 else "#FFB800"
+
+                            badge_html = f"<span class='tl-badge' style='color:#FF4455;border-color:rgba(255,68,85,0.3);'>⬤ {n_crit_dia} críticos</span>" if n_crit_dia > 0 else ""
+
+                            st.markdown(f"""
+                            <div class="tl-item">
+                                <div class="tl-dot {dot_cls}"></div>
+                                <div class="tl-time">📅 {dia_label.upper()}</div>
+                                <div class="tl-body">
+                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+                                        <span style="font-weight:700;color:{cor_dia};">{len(grupo_dia)} leituras de risco</span>
+                                        {badge_html}
+                                    </div>
+                            """, unsafe_allow_html=True)
+
+                            # No mundo real, agrupamos apenas por tipo de fruta detetada naquele dia
+                            for fruta_id, g_fruta in grupo_dia.groupby("classe_dominante"):
+                                g_fruta  = g_fruta.sort_values("_time")
+                                pior     = g_fruta.sort_values("voc_gas").iloc[0]
+                                voc_med  = g_fruta["voc_gas"].mean()
+                                temp_med = g_fruta["temp"].mean() if 'temp' in g_fruta.columns else 0.0
+                                cor_ev   = pior["cor"]
+                                trend    = "↘ A degradar" if g_fruta["voc_gas"].iloc[-1] < g_fruta["voc_gas"].iloc[0] else "↗ Estável"
+                                trend_c  = "#FF4455" if "degradar" in trend else "#00E5B4"
+
+                                st.markdown(f"""
+                                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;">
+                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
+                                        <div>
+                                            <span style="font-family:var(--mono);font-size:0.68rem;color:var(--txt-muted);">PRODUTO&nbsp;</span>
+                                            <span style="font-family:var(--mono);font-size:0.82rem;color:var(--txt);font-weight:700;text-transform:uppercase;">{fruta_id}</span>
+                                        </div>
+                                        <span style="font-family:var(--mono);font-size:0.72rem;color:{trend_c};">{trend}</span>
+                                    </div>
+                                    <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+                                        <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{pior['estado']}</span>
+                                    </div>
+                                    <div style="display:flex;gap:20px;font-size:0.82rem;color:var(--txt-muted);flex-wrap:wrap;">
+                                        <span>VOC médio diário: <span style="font-family:var(--mono);color:var(--txt);">{voc_med/1000:.2f} kΩ</span></span>
+                                        <span>Temp média: <span style="font-family:var(--mono);color:var(--txt);">{temp_med:.1f} °C</span></span>
+                                        <span>Ação exigida: <strong style="color:{cor_ev};">{pior['acao']}</strong></span>
+                                    </div>
                                 </div>
-                                <span style="font-family:var(--mono);font-size:0.72rem;color:{trend_c};">{trend}</span>
-                            </div>
-                            <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-                                <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{pior['estado']}</span>
-                                <span style="font-size:0.82rem;color:var(--txt-sub);">📦 {pior['fruta']}</span>
-                                <span style="font-size:0.78rem;color:var(--txt-muted);">Turnos: {turnos}</span>
-                            </div>
-                            <div style="display:flex;gap:20px;font-size:0.82rem;color:var(--txt-muted);flex-wrap:wrap;">
-                                <span>VOC médio: <span style="font-family:var(--mono);color:var(--txt);">{voc_med/1000:.2f} kΩ</span></span>
-                                <span>Temp: <span style="font-family:var(--mono);color:var(--txt);">{temp_med:.1f} °C</span></span>
-                                <span>Ação: <strong style="color:{cor_ev};">{pior['acao']}</strong></span>
-                            </div>
-                        </div>
-                        """, unsafe_allow_html=True)
+                                """, unsafe_allow_html=True)
 
-                    st.markdown("</div></div>", unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
+                            st.markdown("</div></div>", unsafe_allow_html=True)
+                        st.markdown('</div>', unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════════
     #  TAB 3 — CALIBRAÇÃO E HARDWARE ADMIN
