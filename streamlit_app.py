@@ -8,6 +8,8 @@ from datetime import datetime, timedelta
 from influxdb_client import InfluxDBClient
 from streamlit_autorefresh import st_autorefresh
 import extra_streamlit_components as stx
+import json
+import os
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide")
@@ -224,11 +226,24 @@ div[data-baseweb="select"] > div { background: var(--surface) !important; border
 # ══════════════════════════════════════════════════════════════
 #  THRESHOLDS & FUNÇÕES BASE
 # ══════════════════════════════════════════════════════════════
-if 'thresholds' not in st.session_state:
-    st.session_state.thresholds = {
+# --- FUNÇÕES PARA LER/GUARDAR NO FICHEIRO JSON ---
+def carregar_calibracao():
+    if os.path.exists("calibracao.json"):
+        with open("calibracao.json", "r") as f:
+            return json.load(f)
+    # Valores por defeito se o ficheiro ainda não existir
+    return {
         "clim_fresco": 13000, "clim_maduro": 17000,
         "nclim_firme": 13000, "nclim_risco": 16000
     }
+
+def guardar_calibracao(limites):
+    with open("calibracao.json", "w") as f:
+        json.dump(limites, f)
+
+if 'thresholds' not in st.session_state:
+    st.session_state.thresholds = carregar_calibracao()
+
 thresholds = st.session_state.thresholds
 
 def fetch_data():
@@ -711,14 +726,23 @@ else:
                 nclim_f = st.slider("Firme → Risco",     10000, 14000, thresholds["nclim_firme"])
                 nclim_r = st.slider("Risco → Degradada", 14000, 18000, thresholds["nclim_risco"])
             st.markdown("<br>", unsafe_allow_html=True)
-            submitted = st.form_submit_button("Aplicar Parâmetros →", use_container_width=True, type="primary")
+            submitted = st.form_submit_button("Aplicar Parâmetros", use_container_width=True, type="primary")
             if submitted:
-                st.session_state.thresholds = {
+                novos_limites = {
                     "clim_fresco": clim_f, "clim_maduro": clim_m,
                     "nclim_firme": nclim_f, "nclim_risco": nclim_r
                 }
+                
+                # 1. Atualiza na sessão atual
+                st.session_state.thresholds = novos_limites
+                
+                # 2. GUARDA NO FICHEIRO PARA SEMPRE
+                guardar_calibracao(novos_limites)
+                
+                # 3. Limpa a cache para recalcular os gráficos e atualiza a página
                 st.cache_data.clear()
-                st.success("✓ Parâmetros aplicados. Histórico recalculado.")
+                st.success("✓ Parâmetros aplicados e guardados com sucesso!")
+                time.sleep(1) 
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         
