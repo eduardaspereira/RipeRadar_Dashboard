@@ -112,7 +112,9 @@ st.markdown("""
     background-image: linear-gradient(rgba(0,229,180,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,180,0.015) 1px, transparent 1px);
     background-size: 40px 40px; pointer-events: none; z-index: 0;
 }
-#MainMenu, footer, header { visibility: hidden; }
+#MainMenu, footer { visibility: hidden; }
+header { background: transparent !important; }
+[data-testid="stHeaderActionElements"] { display: none !important; }
 h1,h2,h3,h4 { font-family: var(--sans); }
 
 [data-testid="stSidebar"] { background: var(--surface) !important; border-right: 1px solid var(--border) !important; }
