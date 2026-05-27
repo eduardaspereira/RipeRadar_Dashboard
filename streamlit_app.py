@@ -4,7 +4,7 @@ import plotly.graph_objects as go
 import numpy as np
 import random
 import time
-from datetime import datetime, timedelta
+from datetime import datetime, timedelta, timezone
 from influxdb_client import InfluxDBClient
 from streamlit_autorefresh import st_autorefresh
 import extra_streamlit_components as stx
@@ -12,15 +12,14 @@ import json
 import os
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
-st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide")
+st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide", initial_sidebar_state="expanded")
 
 # --- 2. GESTOR DE COOKIES ---
 cookie_manager = stx.CookieManager(key="cookie_manager_global")
-
 if cookie_manager.get_all() is None:
     st.stop() 
-valor_cookie = cookie_manager.get(cookie="terminal_loja")
-is_terminal = str(valor_cookie).lower() == "true"
+
+is_terminal = str(cookie_manager.get(cookie="terminal_loja")).lower() == "true"
 
 # --- 3. CREDENCIAIS (Usando st.secrets) ---
 try:
@@ -28,8 +27,11 @@ try:
     INFLUX_TOKEN  = st.secrets["INFLUX_TOKEN"]
     INFLUX_ORG    = st.secrets["INFLUX_ORG"]
     INFLUX_BUCKET = st.secrets["INFLUX_BUCKET"]
-except Exception as e:
-    print("Erro nas credencias influx")
+except Exception:
+    INFLUX_URL = "https://eu-central-1-1.aws.cloud2.influxdata.com"
+    INFLUX_TOKEN = "TEU_TOKEN"
+    INFLUX_ORG = "TUA_ORG"
+    INFLUX_BUCKET = "TEU_BUCKET"
 
 # --- 4. ESTADO DA SESSÃO ---
 if 'logado' not in st.session_state:
@@ -37,7 +39,6 @@ if 'logado' not in st.session_state:
     st.session_state.cargo = ""
 
 def verificar_login_manual():
-    """Validação para quando o login é feito via teclado"""
     user = st.session_state.user_input
     pw   = st.session_state.pass_input
     if user == "chefe" and pw == "admin123":
@@ -50,7 +51,6 @@ def verificar_login_manual():
         st.error("Credenciais inválidas.")
 
 def verificar_login_rfid():
-    """Consulta o InfluxDB para ver se houve login RFID nos últimos 5 segundos"""
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
         query_api = client.query_api()
@@ -80,6 +80,7 @@ def verificar_login_rfid():
 def logout():
     st.session_state.logado = False
     st.session_state.cargo = ""
+
 # ══════════════════════════════════════════════════════════════
 #  CSS INJETADO
 # ══════════════════════════════════════════════════════════════
@@ -107,13 +108,9 @@ st.markdown("""
 
 .stApp { background-color: var(--bg); color: var(--txt); font-family: var(--sans); }
 .stApp::before {
-    content: '';
-    position: fixed; inset: 0;
-    background-image:
-        linear-gradient(rgba(0,229,180,0.015) 1px, transparent 1px),
-        linear-gradient(90deg, rgba(0,229,180,0.015) 1px, transparent 1px);
-    background-size: 40px 40px;
-    pointer-events: none; z-index: 0;
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(0,229,180,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,180,0.015) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
 }
 #MainMenu, footer, header { visibility: hidden; }
 h1,h2,h3,h4 { font-family: var(--sans); }
@@ -123,8 +120,7 @@ h1,h2,h3,h4 { font-family: var(--sans); }
 
 .metric-card {
     background: var(--surface); border: 1px solid var(--border);
-    border-radius: 12px; padding: 20px 22px;
-    position: relative; overflow: hidden; transition: border-color 0.2s;
+    border-radius: 12px; padding: 20px 22px; position: relative; overflow: hidden; transition: border-color 0.2s;
 }
 .metric-card::after {
     content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
@@ -138,14 +134,10 @@ h1,h2,h3,h4 { font-family: var(--sans); }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
 .status-banner {
-    border-radius: 14px; padding: 28px 32px;
-    border: 1px solid var(--border); background: var(--surface2);
-    position: relative; overflow: hidden;
+    border-radius: 14px; padding: 28px 32px; border: 1px solid var(--border); background: var(--surface2); position: relative; overflow: hidden;
 }
 .status-banner::before {
-    content: ''; position: absolute; inset: 0;
-    background: radial-gradient(ellipse at top left, rgba(0,229,180,0.06) 0%, transparent 60%);
-    pointer-events: none;
+    content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at top left, rgba(0,229,180,0.06) 0%, transparent 60%); pointer-events: none;
 }
 .status-accent-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 14px 0 0 14px; }
 .status-label  { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; color: var(--txt-muted); margin-bottom: 12px; }
@@ -156,7 +148,6 @@ h1,h2,h3,h4 { font-family: var(--sans); }
 .section-header { display: flex; align-items: center; gap: 12px; margin: 28px 0 16px; }
 .section-header h3 { font-size: 1rem; font-weight: 600; color: var(--txt); margin: 0; letter-spacing: 0.3px; }
 .section-divider { flex: 1; height: 1px; background: var(--border); }
-
 .chart-wrap { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px 16px 8px; }
 
 .tl-wrap { position: relative; padding-left: 28px; }
@@ -185,7 +176,7 @@ h1,h2,h3,h4 { font-family: var(--sans); }
 .sb-section-title { font-family: var(--mono); font-size: 0.7rem; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 1.5px; margin: 20px 0 10px; }
 .sb-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
 .sb-lbl { font-size: 0.82rem; color: var(--txt-sub); }
-.sb-val { font-family: var(--mono); font-size: 0.82rem; color: var(--accent); font-weight: 700; }
+.sb-val { font-family: var(--mono); font-size: 0.82rem; font-weight: 700; }
 
 .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 48px 44px; text-align: center; position: relative; overflow: hidden; }
 .login-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
@@ -200,6 +191,8 @@ h1,h2,h3,h4 { font-family: var(--sans); }
 .page-badge  { font-family: var(--mono); font-size: 0.68rem; font-weight: 700; letter-spacing: 1.5px; color: var(--accent); background: rgba(0,229,180,0.08); border: 1px solid rgba(0,229,180,0.2); border-radius: 999px; padding: 3px 10px; }
 .live-chip   { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 0.68rem; color: var(--accent); letter-spacing: 1px; }
 .live-dot    { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: blink 1.5s ease-in-out infinite; }
+.offline-chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 0.68rem; color: var(--txt-muted); letter-spacing: 1px; }
+.offline-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--txt-muted); }
 
 .stTabs [data-baseweb="tab-list"] { border-bottom: 1px solid var(--border) !important; gap: 0 !important; background: transparent !important; }
 .stTabs [data-baseweb="tab"] { font-family: var(--mono) !important; font-size: 0.78rem !important; font-weight: 700 !important; color: var(--txt-muted) !important; text-transform: uppercase !important; letter-spacing: 1px !important; padding: 12px 20px !important; border-radius: 0 !important; margin: 0 !important; }
@@ -214,24 +207,16 @@ div[data-baseweb="input"] { background: var(--bg) !important; border-color: var(
 div[data-baseweb="input"]:focus-within { border-color: var(--accent) !important; box-shadow: 0 0 0 2px rgba(0,229,180,0.1) !important; }
 div[data-baseweb="input"] > input { color: var(--txt) !important; font-family: var(--sans) !important; }
 div[data-baseweb="select"] > div { background: var(--surface) !important; border-color: var(--border) !important; color: var(--txt) !important; border-radius: 8px !important; }
-
-.stProgress > div > div { background: var(--border) !important; border-radius: 4px !important; }
-.stProgress > div > div > div { background: linear-gradient(90deg, var(--accent2), var(--accent)) !important; border-radius: 4px !important; }
-.stSlider [data-testid="stThumbValue"] { color: var(--accent) !important; font-family: var(--mono) !important; }
-.stSlider > div > div > div > div { background: var(--accent) !important; }
-.stToggle [data-testid="stToggle"] > div[data-checked="true"] { background: var(--accent) !important; }
 </style>
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
-#  THRESHOLDS & FUNÇÕES BASE
+#  THRESHOLDS & FUNÇÕES BASE (COM JSON)
 # ══════════════════════════════════════════════════════════════
-# --- FUNÇÕES PARA LER/GUARDAR NO FICHEIRO JSON ---
 def carregar_calibracao():
     if os.path.exists("calibracao.json"):
         with open("calibracao.json", "r") as f:
             return json.load(f)
-    # Valores por defeito se o ficheiro ainda não existir
     return {
         "clim_fresco": 13000, "clim_maduro": 17000,
         "nclim_firme": 13000, "nclim_risco": 16000
@@ -254,7 +239,10 @@ def fetch_data():
                   f' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")')
         df = client.query_api().query_data_frame(query)
         if isinstance(df, list): df = pd.concat(df)
-        return df if isinstance(df, pd.DataFrame) and not df.empty else pd.DataFrame()
+        if isinstance(df, pd.DataFrame) and not df.empty:
+            df['_time'] = pd.to_datetime(df['_time'], utc=True)
+            return df
+        return pd.DataFrame()
     except:
         return pd.DataFrame()
 
@@ -273,7 +261,7 @@ def processar_decisao(classe, voc):
 def gerar_historico_simulado(dias: int = 90):
     random.seed(42)
     np.random.seed(42)
-    now    = datetime.now()
+    now    = datetime.now(timezone.utc)
     frutas = ["Maca", "Banana", "Laranja"]
     secoes = {"Maca":"Sec. A — Frutas Frescas", "Banana":"Sec. A — Frutas Frescas", "Laranja":"Sec. B — Citrinos"}
     lotes_base = {"Maca":"LOT-MA", "Banana":"LOT-BA", "Laranja":"LOT-LA"}
@@ -283,8 +271,7 @@ def gerar_historico_simulado(dias: int = 90):
     for fruta in frutas:
         for dia in range(dias, 0, -1):
             data_base = now - timedelta(days=dia)
-            if data_base.weekday() == 0:
-                lote_cnt[fruta] += 1
+            if data_base.weekday() == 0: lote_cnt[fruta] += 1
             lote_id = f"{lotes_base[fruta]}-{lote_cnt[fruta]:03d}"
 
             for turno_h in [8, 14, 20]:
@@ -320,7 +307,7 @@ PLOT_LAYOUT = dict(
 )
 
 # ══════════════════════════════════════════════════════════════
-#  ECRÃ LOGIN (UNIFICADO COM RFID)
+#  ECRÃ LOGIN
 # ══════════════════════════════════════════════════════════════
 if not st.session_state.logado:
     st.markdown("<br><br><br>", unsafe_allow_html=True)
@@ -341,7 +328,6 @@ if not st.session_state.logado:
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
 
-        # Lógica Condicional do Terminal
         if is_terminal:
             st_autorefresh(interval=2000, limit=None, key="login_refresh")
             st.info("📡 Terminal Autorizado: Aproxime o cartão RFID do leitor para entrar.")
@@ -364,6 +350,42 @@ if not st.session_state.logado:
 #  DASHBOARD
 # ══════════════════════════════════════════════════════════════
 else:
+    # ── VERIFICAÇÃO DE TELEMETRIA RECENTE (ÚLTIMOS 3 MIN) ─────
+    df_live = fetch_data()
+    agora = datetime.now(timezone.utc)
+    limite_3min = agora - timedelta(minutes=3)
+    
+    is_live = False
+    influx_online = False
+    nicla_online = False
+    vision_online = False
+    
+    if not df_live.empty and '_time' in df_live.columns:
+        influx_online = True
+        
+        if df_live['_time'].max() >= limite_3min:
+            is_live = True
+            
+        # Lógica para o Nicla (BME688) baseado na existência de dados recentes de 'voc_gas'
+        if 'voc_gas' in df_live.columns:
+            voc_times = df_live.dropna(subset=['voc_gas'])['_time']
+            if not voc_times.empty and voc_times.max() >= limite_3min:
+                nicla_online = True
+                
+        # Lógica para o Arduino BLE SENSE baseado na classe/confiança da AI
+        vision_col = 'classe_dominante' if 'classe_dominante' in df_live.columns else ('confianca' if 'confianca' in df_live.columns else None)
+        if vision_col:
+            vision_times = df_live.dropna(subset=[vision_col])['_time']
+            if not vision_times.empty and vision_times.max() >= limite_3min:
+                vision_online = True
+
+    # HTML Helpers para o menu lateral
+    color_on = "#00E5B4"
+    color_off = "var(--txt-muted)"
+    lbl_on = "ONLINE"
+    lbl_act = "ACTIVE"
+    lbl_off = "OFFLINE"
+
     # ── SIDEBAR ──────────────────────────────────────────────
     with st.sidebar:
         st.markdown("<br>", unsafe_allow_html=True)
@@ -376,29 +398,46 @@ else:
         st.button("↩ Terminar Sessão", on_click=logout, use_container_width=True)
 
         st.markdown("<div class='sb-section-title'>Diagnóstico de Sistema</div>", unsafe_allow_html=True)
-        st.markdown("""<div class="sb-row"><span class="sb-lbl">CPU Edge Gateway</span><span class="sb-val">24%</span></div>""", unsafe_allow_html=True)
+        st.markdown("""<div class="sb-row"><span class="sb-lbl">CPU Edge Gateway</span><span class="sb-val" style="color:var(--txt);">24%</span></div>""", unsafe_allow_html=True)
         st.progress(24)
-        st.markdown("""<div class="sb-row" style="margin-top:12px;"><span class="sb-lbl">Sinal BLE Nicla</span><span class="sb-val">85%</span></div>""", unsafe_allow_html=True)
+        st.markdown("""<div class="sb-row" style="margin-top:12px;"><span class="sb-lbl">Sinal BLE Hub</span><span class="sb-val" style="color:var(--txt);">85%</span></div>""", unsafe_allow_html=True)
         st.progress(85)
-        st.markdown("""
-            <div class="sb-row" style="margin-top:14px;"><span class="sb-lbl">InfluxDB</span><span class="sb-val" style="color:#00E5B4;">ONLINE</span></div>
-            <div class="sb-row"><span class="sb-lbl">MQTT Broker</span><span class="sb-val" style="color:#00E5B4;">ACTIVE</span></div>
-            <div class="sb-row"><span class="sb-lbl">BME688</span><span class="sb-val" style="color:#00E5B4;">LINKED</span></div>
+        
+        st.markdown(f"""
+            <div class="sb-row" style="margin-top:14px;">
+                <span class="sb-lbl">InfluxDB</span>
+                <span class="sb-val" style="color:{color_on if influx_online else color_off};">{lbl_on if influx_online else lbl_off}</span>
+            </div>
+            <div class="sb-row">
+                <span class="sb-lbl">MQTT Broker</span>
+                <span class="sb-val" style="color:{color_on if influx_online else color_off};">{lbl_act if influx_online else lbl_off}</span>
+            </div>
+            <div class="sb-row">
+                <span class="sb-lbl">Nicla Sense ME</span>
+                <span class="sb-val" style="color:{color_on if nicla_online else color_off};">{lbl_on if nicla_online else lbl_off}</span>
+            </div>
+            <div class="sb-row">
+                <span class="sb-lbl">Arduino BLE 33 SENSE</span>
+                <span class="sb-val" style="color:{color_on if vision_online else color_off};">{lbl_on if vision_online else lbl_off}</span>
+            </div>
         """, unsafe_allow_html=True)
         st.markdown("<div class='sb-section-title' style='margin-top:20px;'>Telemetria</div>", unsafe_allow_html=True)
         auto_refresh = st.toggle("Live Refresh (5s)", value=True)
 
-    # ── DADOS ─────────────────────────────────────────────────
-    df_live = fetch_data()
     df_hist = gerar_historico_simulado(dias=90)
 
     # ── PAGE HEADER ───────────────────────────────────────────
-    st.markdown("""
+    if is_live:
+        chip_html = '<span class="live-chip"><span class="live-dot"></span>LIVE</span>'
+    else:
+        chip_html = '<span class="offline-chip"><span class="offline-dot"></span>HISTORIC (NO DATA)</span>'
+
+    st.markdown(f"""
         <div class="page-header">
             <span class="page-title">Centro de Comando Analítico</span>
             <span class="page-badge">RipeRadar OS</span>
             <span style="flex:1;"></span>
-            <span class="live-chip"><span class="live-dot"></span>LIVE</span>
+            {chip_html}
         </div>
     """, unsafe_allow_html=True)
 
@@ -524,7 +563,7 @@ else:
                 )
 
             dias_map = {"Últimos 7 dias":7,"Últimos 30 dias":30,"Últimos 90 dias":90}
-            corte    = datetime.now() - timedelta(days=dias_map[periodo])
+            corte    = datetime.now(timezone.utc) - timedelta(days=dias_map[periodo])
 
             df_periodo = df_hist[df_hist["timestamp"] >= corte].copy()
             if fruta_filtro != "Todos":
@@ -714,7 +753,7 @@ else:
         with st.form("calibration_form"):
             st.markdown("""
                 <div class="calib-title">Parâmetros do Modelo de Late Fusion</div>
-                <div class="calib-sub">Sintonize a janela de resistência do sensor BME688. Recomendado suspender o Live Refresh antes de operar.</div>
+                <div class="calib-sub">Sintonize a janela de resistência do sensor Nicla Sense ME. Recomendado suspender o Live Refresh antes de operar.</div>
             """, unsafe_allow_html=True)
             col_a, col_b = st.columns(2)
             with col_a:
@@ -726,34 +765,25 @@ else:
                 nclim_f = st.slider("Firme → Risco",     10000, 14000, thresholds["nclim_firme"])
                 nclim_r = st.slider("Risco → Degradada", 14000, 18000, thresholds["nclim_risco"])
             st.markdown("<br>", unsafe_allow_html=True)
-            submitted = st.form_submit_button("Aplicar Parâmetros", use_container_width=True, type="primary")
+            submitted = st.form_submit_button("Aplicar Parâmetros →", use_container_width=True, type="primary")
             if submitted:
                 novos_limites = {
                     "clim_fresco": clim_f, "clim_maduro": clim_m,
                     "nclim_firme": nclim_f, "nclim_risco": nclim_r
                 }
-                
-                # 1. Atualiza na sessão atual
                 st.session_state.thresholds = novos_limites
-                
-                # 2. GUARDA NO FICHEIRO PARA SEMPRE
                 guardar_calibracao(novos_limites)
-                
-                # 3. Limpa a cache para recalcular os gráficos e atualiza a página
                 st.cache_data.clear()
                 st.success("✓ Parâmetros aplicados e guardados com sucesso!")
-                time.sleep(1) 
+                time.sleep(1)
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # Secção de Administração de Hardware (Apenas Chefes)
+        # Secção de Administração de Hardware - Corrigida (sem usar divs vazias antes do st.button)
         if st.session_state.cargo == "Chefe de Loja":
             st.markdown("<br>", unsafe_allow_html=True)
-            st.markdown("<div class='calib-card'>", unsafe_allow_html=True)
-            st.markdown("""
-                <div class="calib-title">Configuração de Hardware RFID</div>
-                <div class="calib-sub">Usa esta zona para autorizar este computador a escutar o Leitor RFID (EDGE Gateway).</div>
-            """, unsafe_allow_html=True)
+            st.subheader("Configuração de Hardware RFID")
+            st.caption("Usa esta zona para autorizar este computador a escutar o Leitor RFID (EDGE Gateway).")
             
             if not is_terminal:
                 if st.button("💻 Registar este PC como Terminal RFID Seguro"):
@@ -764,7 +794,6 @@ else:
                 if st.button("❌ Remover Registo RFID deste PC"):
                     cookie_manager.delete("terminal_loja", key="del_term")
                     st.warning("⚠️ Registo removido. O login passará a ser obrigatoriamente manual.")
-            st.markdown("</div>", unsafe_allow_html=True)
 
     # ── AUTO REFRESH DASHBOARD ─────────────────────────────────
     if auto_refresh:
