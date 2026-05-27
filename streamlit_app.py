@@ -6,7 +6,7 @@ from datetime import datetime, timedelta
 import numpy as np
 import random
 import time
-import os
+import requests  # Adicionado para falar com o teu script local
 
 # ══════════════════════════════════════════════════════════════
 #  CONFIGURAÇÃO DOS CARTÕES RFID (Substitui com os teus UIDs reais)
@@ -14,8 +14,8 @@ import os
 UUID_OPERARIO = "AA BB CC DD"  # Substitui pelo UID do operário
 UUID_CHEFE    = "11 22 33 44"  # Substitui pelo UID do chefe
 
-# Ficheiro local de comunicação usado pela ponte Bluetooth no teu PC
-FICHEIRO_RFID = "rfid_login.txt"
+# URL do mini-servidor que criámos no teu PC Windows
+URL_PONTE_LOCAL = "http://127.0.0.1:8000/get_rfid"
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide", initial_sidebar_state="expanded")
@@ -26,16 +26,14 @@ if 'logado' not in st.session_state:
     st.session_state.cargo = ""
 
 def check_login_local_rfid():
-    """Verifica se a ponte Bluetooth registou uma passagem de cartão válida"""
-    if os.path.exists(FICHEIRO_RFID):
-        try:
-            with open(FICHEIRO_RFID, "r") as f:
-                uid = f.read().strip().upper()
+    """Tenta ler o último cartão guardado na ponte Bluetooth do teu PC local"""
+    try:
+        # Faz um pedido ultra-rápido ao teu script de background (timeout de 0.2s para não travar a app)
+        resposta = requests.get(URL_PONTE_LOCAL, timeout=0.2)
+        if resposta.status_code == 200:
+            uid = resposta.json().get("uid", "").strip().upper()
             
             if uid:
-                # Remove imediatamente para evitar loops de login
-                os.remove(FICHEIRO_RFID)
-                
                 if uid == UUID_OPERARIO:
                     st.session_state.logado = True
                     st.session_state.cargo = "Operador"
@@ -48,8 +46,9 @@ def check_login_local_rfid():
                     st.rerun()
                 else:
                     st.toast(f"❌ Cartão RFID Não Autorizado (UID: {uid})", icon="⚠️")
-        except Exception as e:
-            pass
+    except Exception:
+        # Se falhar (por exemplo, se o script do PC não estiver ligado ou se o site for aberto noutro PC), ignora em silêncio
+        pass
 
 def verificar_login():
     user = st.session_state.user_input
@@ -66,12 +65,29 @@ def verificar_login():
 def logout():
     st.session_state.logado = False
     st.session_state.cargo  = ""
-    if os.path.exists(FICHEIRO_RFID):
-        try:
-            os.remove(FICHEIRO_RFID)
-        except:
-            pass
+    st.rerun()
 
+# --- FLUXO DE TELAS ---
+if not st.session_state.logado:
+    check_login_local_rfid()
+    
+    st.title("🔒 RipeRadar OS - Login")
+    st.text_input("Utilizador", key="user_input")
+    st.text_input("Palavra-passe", type="password", key="pass_input")
+    st.button("Entrar", on_click=verificar_login)
+    
+    st.info("A aguardar aproximação de cartão RFID via Bluetooth...")
+    
+    # Atualiza a página a cada 1.5 segundos para verificar se passaste o cartão
+    time.sleep(1.5)
+    st.rerun()
+else:
+    # --- 3. ÁREA PROTEGIDA (DASHBOARD) ---
+    st.sidebar.title(f"Bem-vindo, {st.session_state.cargo}")
+    st.sidebar.button("Terminar Sessão", on_click=logout)
+    
+    st.title("📊 Painel de Controlo RipeRadar")
+    st.write(f"Sessão iniciada como: **{st.session_state.cargo}**")
 # ══════════════════════════════════════════════════════════════
 #  CSS
 # ══════════════════════════════════════════════════════════════
