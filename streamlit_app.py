@@ -14,7 +14,11 @@ st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide")
 
 # --- 2. GESTOR DE COOKIES ---
 cookie_manager = stx.CookieManager(key="cookie_manager_global")
-is_terminal = cookie_manager.get(cookie="terminal_loja") == "true"
+
+if cookie_manager.get_all() is None:
+    st.stop() 
+valor_cookie = cookie_manager.get(cookie="terminal_loja")
+is_terminal = str(valor_cookie).lower() == "true"
 
 # --- 3. CREDENCIAIS (Usando st.secrets) ---
 try:
