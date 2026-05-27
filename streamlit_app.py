@@ -13,11 +13,7 @@ import extra_streamlit_components as stx
 st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide")
 
 # --- 2. GESTOR DE COOKIES ---
-@st.cache_resource
-def get_manager():
-    return stx.CookieManager()
-
-cookie_manager = get_manager()
+cookie_manager = stx.CookieManager(key="cookie_manager_global")
 is_terminal = cookie_manager.get(cookie="terminal_loja") == "true"
 
 # --- 3. CREDENCIAIS (Usando st.secrets) ---
@@ -374,7 +370,7 @@ if not st.session_state.logado:
         st.text_input("Identificação de Utilizador", key="user_input", placeholder="chefe  /  operador")
         st.text_input("Código de Acesso", type="password", key="pass_input", placeholder="••••••••")
         st.markdown("<br>", unsafe_allow_html=True)
-        st.button("Iniciar Sessão Segura →", on_click=verificar_login, use_container_width=True, type="primary")
+        st.button("Iniciar Sessão", on_click=verificar_login_manual, use_container_width=True, type="primary")
         st.markdown("<div class='login-version'>RIPERADAR OS v2.4 · EDGE GATEWAY · SESSION ENCRYPTED</div>", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
