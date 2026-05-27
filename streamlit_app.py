@@ -45,7 +45,7 @@ def check_login_rfid():
     except Exception as e:
         pass
         
-def verificar_login_manual():
+def verificar_login():
     user = st.session_state.user_input
     pw   = st.session_state.pass_input
     if user == "chefe" and pw == "admin123":
