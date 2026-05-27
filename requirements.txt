@@ -3,3 +3,5 @@ paho-mqtt
 pandas
 plotly
 influxdb-client
+streamlit-autorefresh
+extra-streamlit-components
