@@ -13,7 +13,11 @@ import extra_streamlit_components as stx
 st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide")
 
 # --- 2. GESTOR DE COOKIES ---
-cookie_manager = stx.CookieManager(key="cookie_manager_global")
+@st.cache_resource
+def get_manager():
+    return stx.CookieManager()
+
+cookie_manager = get_manager()
 is_terminal = cookie_manager.get(cookie="terminal_loja") == "true"
 
 # --- 3. CREDENCIAIS (Usando st.secrets) ---
@@ -23,7 +27,11 @@ try:
     INFLUX_ORG    = st.secrets["INFLUX_ORG"]
     INFLUX_BUCKET = st.secrets["INFLUX_BUCKET"]
 except Exception as e:
-    print("Erro nas credencias influx")
+    # Fallback local se os secrets não estiverem configurados no teste
+    INFLUX_URL = "https://eu-central-1-1.aws.cloud2.influxdata.com"
+    INFLUX_TOKEN = "TEU_TOKEN"
+    INFLUX_ORG = "TUA_ORG"
+    INFLUX_BUCKET = "TEU_BUCKET"
 
 # --- 4. ESTADO DA SESSÃO ---
 if 'logado' not in st.session_state:
@@ -75,9 +83,8 @@ def logout():
     st.session_state.logado = False
     st.session_state.cargo = ""
 
-
 # ══════════════════════════════════════════════════════════════
-#  CSS
+#  CSS INJETADO
 # ══════════════════════════════════════════════════════════════
 st.markdown("""
 <style>
@@ -220,7 +227,7 @@ div[data-baseweb="select"] > div { background: var(--surface) !important; border
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
-#  THRESHOLDS (em session_state para persistir após calibração)
+#  THRESHOLDS & FUNÇÕES BASE
 # ══════════════════════════════════════════════════════════════
 if 'thresholds' not in st.session_state:
     st.session_state.thresholds = {
@@ -228,15 +235,6 @@ if 'thresholds' not in st.session_state:
         "nclim_firme": 13000, "nclim_risco": 16000
     }
 thresholds = st.session_state.thresholds
-
-# ── INFLUX ──────────────────────────────────────────────────
-try:
-    INFLUX_URL    = st.secrets["INFLUX_URL"]
-    INFLUX_TOKEN  = st.secrets["INFLUX_TOKEN"]
-    INFLUX_ORG    = st.secrets["INFLUX_ORG"]
-    INFLUX_BUCKET = st.secrets["INFLUX_BUCKET"]
-except:
-    pass
 
 def fetch_data():
     try:
@@ -261,21 +259,10 @@ def processar_decisao(classe, voc):
         elif voc <= t["nclim_risco"]: return "RISCO DE DEGRADAÇÃO",  "#FFB800", "VIGILÂNCIA REFORÇADA","warning"
         else:                          return "DEGRADADA",            "#FF4455", "REJEITAR LOTE",       "danger"
 
-# ══════════════════════════════════════════════════════════════
-#  GERADOR DE DADOS HISTÓRICOS SIMULADOS (supermercado realista)
-# ══════════════════════════════════════════════════════════════
 @st.cache_data(ttl=600)
 def gerar_historico_simulado(dias: int = 90):
-    """
-    Simula dados reais de um supermercado:
-    - 3 produtos: Maçã, Banana, Laranja
-    - Medições 3x/dia (turnos Manhã/Tarde/Noite)
-    - Ciclos de reposição semanais (2ª feira)
-    - Curvas de degradação VOC realistas por fenologia
-    """
     random.seed(42)
     np.random.seed(42)
-
     now    = datetime.now()
     frutas = ["Maca", "Banana", "Laranja"]
     secoes = {"Maca":"Sec. A — Frutas Frescas", "Banana":"Sec. A — Frutas Frescas", "Laranja":"Sec. B — Citrinos"}
@@ -286,26 +273,18 @@ def gerar_historico_simulado(dias: int = 90):
     for fruta in frutas:
         for dia in range(dias, 0, -1):
             data_base = now - timedelta(days=dia)
-            if data_base.weekday() == 0:      # nova entrega à 2ª
+            if data_base.weekday() == 0:
                 lote_cnt[fruta] += 1
             lote_id = f"{lotes_base[fruta]}-{lote_cnt[fruta]:03d}"
 
             for turno_h in [8, 14, 20]:
-                ts = data_base.replace(
-                    hour=turno_h,
-                    minute=random.randint(0, 30),
-                    second=0, microsecond=0
-                )
-                dias_lote = (now - ts).days % 7   # dias desde última entrega
+                ts = data_base.replace(hour=turno_h, minute=random.randint(0, 30), second=0, microsecond=0)
+                dias_lote = (now - ts).days % 7
 
                 if fruta in ["Maca", "Banana"]:
-                    # Climatérico: VOC desce → podre quando fica baixo
-                    voc = 19500 - dias_lote * 950 + np.random.normal(0, 550)
-                    voc = max(7500, voc)
+                    voc = max(7500, 19500 - dias_lote * 950 + np.random.normal(0, 550))
                 else:
-                    # Não climatérico: VOC desce gradualmente
-                    voc = 18500 - dias_lote * 720 + np.random.normal(0, 480)
-                    voc = max(8500, voc)
+                    voc = max(8500, 18500 - dias_lote * 720 + np.random.normal(0, 480))
 
                 temp = round(np.random.normal(4.5, 0.5), 1)
                 hum  = round(np.random.normal(87, 3), 1)
@@ -314,45 +293,29 @@ def gerar_historico_simulado(dias: int = 90):
                 estado, cor_hex, acao, sev = processar_decisao(fruta, voc)
 
                 registos.append({
-                    "timestamp":  ts,
-                    "fruta":      fruta,
-                    "lote":       lote_id,
-                    "secao":      secoes[fruta],
-                    "voc_gas":    round(voc),
-                    "temp":       temp,
-                    "hum":        hum,
-                    "confianca":  conf,
-                    "estado":     estado,
-                    "cor":        cor_hex,
-                    "acao":       acao,
-                    "severidade": sev,
-                    "turno":      {8:"Manhã", 14:"Tarde", 20:"Noite"}[turno_h],
+                    "timestamp":  ts, "fruta": fruta, "lote": lote_id, "secao": secoes[fruta],
+                    "voc_gas": round(voc), "temp": temp, "hum": hum, "confianca": conf,
+                    "estado": estado, "cor": cor_hex, "acao": acao, "severidade": sev,
+                    "turno": {8:"Manhã", 14:"Tarde", 20:"Noite"}[turno_h],
                 })
 
     return pd.DataFrame(registos).sort_values("timestamp", ascending=False).reset_index(drop=True)
 
-# ══════════════════════════════════════════════════════════════
-#  PLOTLY LAYOUT BASE (dark theme partilhado)
-# ══════════════════════════════════════════════════════════════
 PLOT_LAYOUT = dict(
-    paper_bgcolor='rgba(0,0,0,0)',
-    plot_bgcolor='rgba(0,0,0,0)',
-    margin=dict(l=10, r=10, t=24, b=10),
-    hovermode="x unified",
-    font=dict(family="DM Sans", color="#8BA0BC"),
+    paper_bgcolor='rgba(0,0,0,0)', plot_bgcolor='rgba(0,0,0,0)', margin=dict(l=10, r=10, t=24, b=10),
+    hovermode="x unified", font=dict(family="DM Sans", color="#8BA0BC"),
     xaxis=dict(showgrid=False, color="#5A7090", tickfont=dict(family="Space Mono", size=10)),
-    yaxis=dict(gridcolor='#1E2D45', color="#5A7090", zerolinecolor='#1E2D45',
-               tickfont=dict(family="Space Mono", size=10)),
-    legend=dict(font=dict(color='#8BA0BC', family='DM Sans'), bgcolor='rgba(0,0,0,0)',
-                orientation='h', yanchor='bottom', y=1.02)
+    yaxis=dict(gridcolor='#1E2D45', color="#5A7090", zerolinecolor='#1E2D45', tickfont=dict(family="Space Mono", size=10)),
+    legend=dict(font=dict(color='#8BA0BC', family='DM Sans'), bgcolor='rgba(0,0,0,0)', orientation='h', yanchor='bottom', y=1.02)
 )
 
 # ══════════════════════════════════════════════════════════════
-#  ECRÃ LOGIN
+#  ECRÃ LOGIN (UNIFICADO COM RFID)
 # ══════════════════════════════════════════════════════════════
 if not st.session_state.logado:
     st.markdown("<br><br><br>", unsafe_allow_html=True)
     _, col2, _ = st.columns([1, 1.1, 1])
+    
     with col2:
         st.markdown("""
         <div class="login-card">
@@ -367,11 +330,25 @@ if not st.session_state.logado:
         </div>
         """, unsafe_allow_html=True)
         st.markdown("<br>", unsafe_allow_html=True)
-        st.text_input("Identificação de Utilizador", key="user_input", placeholder="chefe  /  operador")
-        st.text_input("Código de Acesso", type="password", key="pass_input", placeholder="••••••••")
-        st.markdown("<br>", unsafe_allow_html=True)
-        st.button("Iniciar Sessão", on_click=verificar_login_manual, use_container_width=True, type="primary")
-        st.markdown("<div class='login-version'>RIPERADAR OS v2.4 · EDGE GATEWAY · SESSION ENCRYPTED</div>", unsafe_allow_html=True)
+
+        # Lógica Condicional do Terminal
+        if is_terminal:
+            st_autorefresh(interval=2000, limit=None, key="login_refresh")
+            st.info("📡 Terminal Autorizado: Aproxime o cartão RFID do leitor para entrar.")
+            verificar_login_rfid()
+            
+            with st.expander("Ou aceda manualmente via teclado"):
+                st.text_input("Identificação", key="user_input", placeholder="chefe  /  operador")
+                st.text_input("Código", type="password", key="pass_input", placeholder="••••••••")
+                st.button("Iniciar Sessão", on_click=verificar_login_manual, use_container_width=True)
+        else:
+            st.warning("🔒 Terminal não registado para RFID. Por favor, inicie sessão manualmente.")
+            st.text_input("Identificação de Utilizador", key="user_input", placeholder="chefe  /  operador")
+            st.text_input("Código de Acesso", type="password", key="pass_input", placeholder="••••••••")
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.button("Iniciar Sessão Segura →", on_click=verificar_login_manual, use_container_width=True, type="primary")
+
+        st.markdown("<div class='login-version' style='text-align:center;'>RIPERADAR OS v2.4 · EDGE GATEWAY · SESSION ENCRYPTED</div>", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
 #  DASHBOARD
@@ -425,7 +402,6 @@ else:
     #  TAB 1 — MONITORIZAÇÃO EM TEMPO REAL
     # ══════════════════════════════════════════════════════════
     with tab_dash:
-        # Usa dados live ou fallback simulado
         if not df_live.empty and '_time' in df_live.columns:
             latest = df_live.iloc[-1]
             voc    = float(latest.get('voc_gas', 0.0))
@@ -524,8 +500,6 @@ else:
     # ══════════════════════════════════════════════════════════
     if st.session_state.cargo == "Chefe de Loja":
         with tab_time:
-
-            # ── FILTROS ───────────────────────────────────────
             col_f1, col_f2, col_f3 = st.columns([1, 1, 2])
             with col_f1:
                 periodo = st.selectbox("Período", ["Últimos 7 dias","Últimos 30 dias","Últimos 90 dias"], index=1)
@@ -550,7 +524,6 @@ else:
 
             st.markdown("<br>", unsafe_allow_html=True)
 
-            # ── KPI CARDS ─────────────────────────────────────
             total          = len(df_periodo)
             n_criticos     = len(df_periodo[df_periodo["severidade"]=="danger"])
             n_atencao      = len(df_periodo[df_periodo["severidade"]=="warning"])
@@ -568,7 +541,6 @@ else:
             </div>
             """, unsafe_allow_html=True)
 
-            # ── GRÁFICO 1: VOC médio diário por produto ────────
             st.markdown("""<div class="section-header"><h3>Evolução da Resistência VOC por Produto</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
 
             palette = {"Maca":"#00E5B4","Banana":"#FFB800","Laranja":"#FF7A45"}
@@ -584,17 +556,12 @@ else:
                     x=dd["dia"], y=dd["voc_gas"], mode='lines', name=f_nome,
                     line=dict(color=palette.get(f_nome,"#8BA0BC"), width=2.5, shape='spline'),
                     fill='tozeroy',
-                    fillcolor=palette.get(f_nome,"#8BA0BC").replace("#","rgba(").rstrip(")") if False else "rgba(0,0,0,0)",
+                    fillcolor="rgba(0,0,0,0)",
                     hovertemplate=f'<b>%{{x}}</b><br>{f_nome}: %{{y:.0f}} Ω<extra></extra>'
                 ))
 
-            # Linhas de limiar visuais
-            fig_voc.add_hline(y=thresholds["clim_fresco"], line_dash="dot",
-                              line_color="rgba(255,184,0,0.35)",
-                              annotation_text="Limiar Maduro", annotation_font_color="#FFB800", annotation_font_size=10)
-            fig_voc.add_hline(y=thresholds["clim_maduro"]*0.76, line_dash="dot",
-                              line_color="rgba(255,68,85,0.35)",
-                              annotation_text="Limiar Crítico", annotation_font_color="#FF4455", annotation_font_size=10)
+            fig_voc.add_hline(y=thresholds["clim_fresco"], line_dash="dot", line_color="rgba(255,184,0,0.35)", annotation_text="Limiar Maduro", annotation_font_color="#FFB800", annotation_font_size=10)
+            fig_voc.add_hline(y=thresholds["clim_maduro"]*0.76, line_dash="dot", line_color="rgba(255,68,85,0.35)", annotation_text="Limiar Crítico", annotation_font_color="#FF4455", annotation_font_size=10)
 
             layout_voc = {**PLOT_LAYOUT, "height": 300, "yaxis_title": "Resistência (Ω)"}
             fig_voc.update_layout(**layout_voc)
@@ -602,7 +569,6 @@ else:
             st.plotly_chart(fig_voc, use_container_width=True)
             st.markdown("</div>", unsafe_allow_html=True)
 
-            # ── GRÁFICOS 2+3: Stacked bars + Donut ────────────
             st.markdown("<br>", unsafe_allow_html=True)
             col_g2, col_g3 = st.columns([3, 2])
 
@@ -626,8 +592,7 @@ else:
                             marker_color=sev_colors[s], opacity=0.85,
                             hovertemplate='%{x}<br>' + sev_labels[s] + ': %{y}<extra></extra>'
                         ))
-                layout_bar = {**PLOT_LAYOUT, "height":280, "barmode":"stack",
-                              "xaxis": {**PLOT_LAYOUT["xaxis"], "tickangle":-30}}
+                layout_bar = {**PLOT_LAYOUT, "height":280, "barmode":"stack", "xaxis": {**PLOT_LAYOUT["xaxis"], "tickangle":-30}}
                 fig_bar.update_layout(**layout_bar)
                 st.markdown("<div class='chart-wrap'>", unsafe_allow_html=True)
                 st.plotly_chart(fig_bar, use_container_width=True)
@@ -649,14 +614,12 @@ else:
                 fig_pie.update_layout(
                     paper_bgcolor='rgba(0,0,0,0)', margin=dict(l=10,r=10,t=24,b=10), height=280,
                     legend=dict(font=dict(color='#8BA0BC',family='DM Sans'),bgcolor='rgba(0,0,0,0)'),
-                    annotations=[dict(text='Alertas', x=0.5, y=0.5, font_size=12, showarrow=False,
-                                      font_color='#5A7090', font_family='Space Mono')]
+                    annotations=[dict(text='Alertas', x=0.5, y=0.5, font_size=12, showarrow=False, font_color='#5A7090', font_family='Space Mono')]
                 )
                 st.markdown("<div class='chart-wrap'>", unsafe_allow_html=True)
                 st.plotly_chart(fig_pie, use_container_width=True)
                 st.markdown("</div>", unsafe_allow_html=True)
 
-            # ── TIMELINE DE EVENTOS AGRUPADA POR DIA/LOTE ─────
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown("""<div class="section-header"><h3>Registo de Eventos de Qualidade</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
             st.markdown("""
@@ -696,10 +659,9 @@ else:
                             </div>
                     """, unsafe_allow_html=True)
 
-                    # Dentro de cada dia: agrupar por lote
                     for lote_id, g_lote in grupo_dia.groupby("lote"):
                         g_lote   = g_lote.sort_values("timestamp")
-                        pior     = g_lote.sort_values("voc_gas").iloc[0]  # menor VOC = pior estado
+                        pior     = g_lote.sort_values("voc_gas").iloc[0]
                         turnos   = " · ".join(g_lote["turno"].unique())
                         voc_med  = g_lote["voc_gas"].mean()
                         temp_med = g_lote["temp"].mean()
@@ -732,11 +694,10 @@ else:
                         """, unsafe_allow_html=True)
 
                     st.markdown("</div></div>", unsafe_allow_html=True)
-
                 st.markdown('</div>', unsafe_allow_html=True)
 
     # ══════════════════════════════════════════════════════════
-    #  TAB 3 — CALIBRAÇÃO
+    #  TAB 3 — CALIBRAÇÃO E HARDWARE ADMIN
     # ══════════════════════════════════════════════════════════
     with tab_admin:
         st.markdown("<div class='calib-card'>", unsafe_allow_html=True)
@@ -765,8 +726,28 @@ else:
                 st.success("✓ Parâmetros aplicados. Histórico recalculado.")
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
+        
+        # Secção de Administração de Hardware (Apenas Chefes)
+        if st.session_state.cargo == "Chefe de Loja":
+            st.markdown("<br>", unsafe_allow_html=True)
+            st.markdown("<div class='calib-card'>", unsafe_allow_html=True)
+            st.markdown("""
+                <div class="calib-title">Configuração de Hardware RFID</div>
+                <div class="calib-sub">Usa esta zona para autorizar este computador a escutar o Leitor RFID (EDGE Gateway).</div>
+            """, unsafe_allow_html=True)
+            
+            if not is_terminal:
+                if st.button("💻 Registar este PC como Terminal RFID Seguro"):
+                    cookie_manager.set("terminal_loja", "true", max_age=31536000, key="set_term")
+                    st.success("✅ PC registado! Faz Logout para testar a entrada por cartão.")
+            else:
+                st.info("✅ Este computador está atualmente configurado e autorizado como Terminal RFID.")
+                if st.button("❌ Remover Registo RFID deste PC"):
+                    cookie_manager.delete("terminal_loja", key="del_term")
+                    st.warning("⚠️ Registo removido. O login passará a ser obrigatoriamente manual.")
+            st.markdown("</div>", unsafe_allow_html=True)
 
-    # ── AUTO REFRESH ──────────────────────────────────────────
+    # ── AUTO REFRESH DASHBOARD ─────────────────────────────────
     if auto_refresh:
         time.sleep(5)
         st.rerun()
