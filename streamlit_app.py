@@ -449,36 +449,103 @@ else:
     else:
         tab_dash, tab_admin = st.tabs(["MONITORIZAÇÃO", "CALIBRAÇÃO"])
 
-    # ══════════════════════════════════════════════════════════
-    #  TAB 1 — MONITORIZAÇÃO EM TEMPO REAL
-    # ══════════════════════════════════════════════════════════
     with tab_dash:
-        if not df_live.empty and '_time' in df_live.columns:
+        if is_live:
+            # ── SISTEMA ONLINE: MOSTRAR DASHBOARD ──
             latest = df_live.iloc[-1]
             voc    = float(latest.get('voc_gas', 0.0))
             fruta  = str(latest.get('classe_dominante', 'Desconhecido'))
             conf   = float(latest.get('confianca', 0.0))
             temp   = float(latest.get('temp', 0.0))
             hum    = float(latest.get('hum', 0.0))
+
+            estado, cor_hex, acao, sev = processar_decisao(fruta, voc)
+            sev_bg  = {"success":"rgba(0,229,180,0.06)", "warning":"rgba(255,184,0,0.06)", "danger":"rgba(255,68,85,0.06)"}
+            sev_bdr = {"success":"rgba(0,229,180,0.2)",  "warning":"rgba(255,184,0,0.2)",  "danger":"rgba(255,68,85,0.2)"}
+
+            col_s, col_g = st.columns([1.6, 1])
+            with col_s:
+                conf_d = conf * 100 if conf <= 1 else conf
+                st.markdown(f"""
+                    <div class="status-banner" style="background:{sev_bg[sev]};border-color:{sev_bdr[sev]};">
+                        <div class="status-accent-bar" style="background:{cor_hex};"></div>
+                        <div class="status-label">Alvo Identificado</div>
+                        <div class="status-target">🎯 {fruta.upper().replace('_',' ')} &nbsp;·&nbsp; Confiança: <span style="font-family:var(--mono);font-weight:700;color:{cor_hex};">{conf_d:.1f}%</span></div>
+                        <div class="status-main" style="color:{cor_hex};">{estado}</div>
+                        <span class="status-action" style="color:{cor_hex};border-color:{sev_bdr[sev]};background:rgba(0,0,0,0.2);">▶ {acao}</span>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            with col_g:
+                is_clim = any(f in fruta.lower() for f in ["maca","banana"])
+                lim_min = thresholds["clim_fresco"] if is_clim else thresholds["nclim_firme"]
+                lim_max = thresholds["clim_maduro"] if is_clim else thresholds["nclim_risco"]
+
+                fig_gauge = go.Figure(go.Indicator(
+                    mode="gauge+number", value=voc,
+                    number={'suffix':" Ω",'font':{'size':28,'color':'#E8EEF8','family':'Space Mono'}},
+                    title={'text':"RESISTÊNCIA VOC (Ω)",'font':{'size':11,'color':'#5A7090','family':'DM Sans'}},
+                    gauge={
+                        'axis':{'range':[None,25000],'tickwidth':1,'tickcolor':"#1E2D45",'tickfont':{'color':'#5A7090','size':10}},
+                        'bar':{'color':cor_hex,'thickness':0.22},
+                        'bgcolor':"#0E1420",'borderwidth':1,'bordercolor':"#1E2D45",
+                        'steps':[
+                            {'range':[0,lim_min],       'color':"rgba(255,68,85,0.1)"},
+                            {'range':[lim_min,lim_max], 'color':"rgba(255,184,0,0.1)"},
+                            {'range':[lim_max,25000],   'color':"rgba(0,229,180,0.1)"}
+                        ],
+                        'threshold':{'line':{'color':cor_hex,'width':2},'thickness':0.8,'value':voc}
+                    }
+                ))
+                fig_gauge.update_layout(height=240, margin=dict(l=20,r=20,t=30,b=10), paper_bgcolor='rgba(0,0,0,0)')
+                st.markdown("<div class='chart-wrap' style='padding:8px 0 0;'>", unsafe_allow_html=True)
+                st.plotly_chart(fig_gauge, use_container_width=True)
+                st.markdown("</div>", unsafe_allow_html=True)
+
+            st.markdown("<br>", unsafe_allow_html=True)
+            c1,c2,c3,c4 = st.columns(4)
+            for col, (lbl, val, unit) in zip([c1,c2,c3,c4], [
+                ("IA CONFIDENCE", f"{conf*100 if conf<=1 else conf:.1f}", "%"),
+                ("TEMPERATURA",   f"{temp:.1f}", "°C"),
+                ("HUMIDADE",      f"{hum:.1f}",  "%"),
+                ("LATÊNCIA MQTT", "124",         "ms"),
+            ]):
+                col.markdown(f"""
+                    <div class="metric-card">
+                        <div class="metric-label"><span class="metric-dot"></span>{lbl}</div>
+                        <div class="metric-value">{val}<span class="metric-unit">{unit}</span></div>
+                    </div>
+                """, unsafe_allow_html=True)
+
+            st.markdown("""<div class="section-header"><h3>Evolução VOC — Última Hora</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
+
+            # O Gráfico agora apenas lê os dados em tempo real
+            df_plot = df_live.dropna(subset=['voc_gas']).sort_values('_time')
+            
+            fig_line = go.Figure()
+            fig_line.add_trace(go.Scatter(
+                x=df_plot['_time'], y=df_plot['voc_gas'],
+                mode='lines+markers',
+                line=dict(color='#00E5B4', width=2.5, shape='spline'),
+                marker=dict(size=5, color='#080C14', line=dict(width=1.5, color='#00E5B4')),
+                fill='tozeroy', fillcolor='rgba(0,229,180,0.06)',
+                hovertemplate='<b>%{x|%d/%m %H:%M}</b><br>%{y:.0f} Ω<extra></extra>'
+            ))
+            fig_line.update_layout(**PLOT_LAYOUT, height=280, yaxis_title="Ohms")
+            st.markdown("<div class='chart-wrap'>", unsafe_allow_html=True)
+            st.plotly_chart(fig_line, use_container_width=True)
+            st.markdown("</div>", unsafe_allow_html=True)
+
         else:
-            ultimo = df_hist.iloc[0]
-            voc, fruta, conf = float(ultimo["voc_gas"]), ultimo["fruta"], float(ultimo["confianca"])
-            temp, hum = float(ultimo["temp"]), float(ultimo["hum"])
-
-        estado, cor_hex, acao, sev = processar_decisao(fruta, voc)
-        sev_bg  = {"success":"rgba(0,229,180,0.06)", "warning":"rgba(255,184,0,0.06)", "danger":"rgba(255,68,85,0.06)"}
-        sev_bdr = {"success":"rgba(0,229,180,0.2)",  "warning":"rgba(255,184,0,0.2)",  "danger":"rgba(255,68,85,0.2)"}
-
-        col_s, col_g = st.columns([1.6, 1])
-        with col_s:
-            conf_d = conf * 100 if conf <= 1 else conf
-            st.markdown(f"""
-                <div class="status-banner" style="background:{sev_bg[sev]};border-color:{sev_bdr[sev]};">
-                    <div class="status-accent-bar" style="background:{cor_hex};"></div>
-                    <div class="status-label">Alvo Identificado</div>
-                    <div class="status-target">🎯 {fruta.upper().replace('_',' ')} &nbsp;·&nbsp; Confiança: <span style="font-family:var(--mono);font-weight:700;color:{cor_hex};">{conf_d:.1f}%</span></div>
-                    <div class="status-main" style="color:{cor_hex};">{estado}</div>
-                    <span class="status-action" style="color:{cor_hex};border-color:{sev_bdr[sev]};background:rgba(0,0,0,0.2);">▶ {acao}</span>
+            # ── SISTEMA OFFLINE: MENSAGEM DE ERRO ──
+            st.markdown("""
+                <div style="text-align: center; padding: 100px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-top: 10px;">
+                    <div style="font-size: 3.5rem; margin-bottom: 12px; opacity: 0.8;">🔌</div>
+                    <h2 style="font-family: var(--mono); color: var(--txt); font-weight: 700; letter-spacing: 1px; margin-bottom: 8px;">TELEMETRIA OFFLINE</h2>
+                    <p style="color: var(--txt-sub); font-size: 0.95rem; max-width: 480px; margin: 0 auto;">
+                        Sem pacotes de dados recebidos nos últimos 3 minutos.<br><br>
+                        Verifique a ligação de rede do <span style="color:var(--txt);">EDGE Gateway</span> e a alimentação dos dispositivos <span style="color:var(--txt);">Nicla Sense ME</span> e <span style="color:var(--txt);">Arduino BLE 33</span>.
+                    </p>
                 </div>
             """, unsafe_allow_html=True)
 
