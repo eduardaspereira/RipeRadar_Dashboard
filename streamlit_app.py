@@ -18,11 +18,12 @@ if 'logado' not in st.session_state:
     st.session_state.ultimo_uid = ""
 
 def check_login_rfid():
-    """Consulta o InfluxDB para ver se algum cartão foi passado recentemente"""
+    """Consulta o InfluxDB Cloud para verificar logins por RFID nos últimos 15 segundos"""
     try:
-        client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-        # Query corrigida com pivot() para trazer todos os campos alinhados por tempo
-        query = (f'from(bucket: "{INFLUX_BUCKET}") |> range(start: -20s)'
+        # Usa os parâmetros do teu .env / secrets
+        client = InfluxDBClient(url=st.secrets["INFLUX_URL"], token=st.secrets["INFLUX_TOKEN"], org=st.secrets["INFLUX_ORG"])
+        
+        query = (f'from(bucket: "{st.secrets["INFLUX_BUCKET"]}") |> range(start: -15s)'
                  f' |> filter(fn: (r) => r["_measurement"] == "user_sessions")'
                  f' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")'
                  f' |> last()')
@@ -31,20 +32,19 @@ def check_login_rfid():
         
         for table in tables:
             for record in table.records:
-                # Com o pivot, o status e o role ficam disponíveis como chaves diretamente
                 status = record.values.get("status")
                 role = record.values.get("role")
-                uid = record.values.get("operator_id") # Tag vem sempre incluída
+                uid = record.values.get("operator_id")
                 
+                # Previne re-execuções em loop validando se é um novo UID detetado
                 if status == "login" and uid and uid != st.session_state.get("ultimo_uid"):
                     st.session_state.logado = True
                     st.session_state.ultimo_uid = uid
-                    st.session_state.cargo = "Chefe de Loja" if role == "manager" else "Operador"
-                    st.toast(f"🔓 Login via RFID efetuado: {st.session_state.cargo}!", icon="👋")
+                    st.session_state.cargo = "Operador Autorizado" if role == "operator" else "Administrador"
+                    st.toast(f"🔓 Acesso RFID Concedido!", icon="👋")
                     st.rerun()
     except Exception as e:
-        pass
-        
+        pass         
 def verificar_login():
     user = st.session_state.user_input
     pw   = st.session_state.pass_input
