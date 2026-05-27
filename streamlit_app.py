@@ -13,11 +13,7 @@ import extra_streamlit_components as stx
 st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide")
 
 # --- 2. GESTOR DE COOKIES ---
-@st.cache_resource
-def get_manager():
-    return stx.CookieManager()
-
-cookie_manager = get_manager()
+cookie_manager = stx.CookieManager(key="cookie_manager_global")
 is_terminal = cookie_manager.get(cookie="terminal_loja") == "true"
 
 # --- 3. CREDENCIAIS (Usando st.secrets) ---
@@ -27,11 +23,7 @@ try:
     INFLUX_ORG    = st.secrets["INFLUX_ORG"]
     INFLUX_BUCKET = st.secrets["INFLUX_BUCKET"]
 except Exception as e:
-    # Fallback local se os secrets não estiverem configurados no teste
-    INFLUX_URL = "https://eu-central-1-1.aws.cloud2.influxdata.com"
-    INFLUX_TOKEN = "TEU_TOKEN"
-    INFLUX_ORG = "TUA_ORG"
-    INFLUX_BUCKET = "TEU_BUCKET"
+    print("Erro nas credencias influx")
 
 # --- 4. ESTADO DA SESSÃO ---
 if 'logado' not in st.session_state:
@@ -82,7 +74,6 @@ def verificar_login_rfid():
 def logout():
     st.session_state.logado = False
     st.session_state.cargo = ""
-
 # ══════════════════════════════════════════════════════════════
 #  CSS INJETADO
 # ══════════════════════════════════════════════════════════════
