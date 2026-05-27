@@ -368,20 +368,17 @@ else:
         if df_live['_time'].max() >= limite_3min:
             is_live = True
             
-        # Lógica para o Nicla (BME688) baseado na existência de dados recentes de 'voc_gas'
         if 'voc_gas' in df_live.columns:
             voc_times = df_live.dropna(subset=['voc_gas'])['_time']
             if not voc_times.empty and voc_times.max() >= limite_3min:
                 nicla_online = True
                 
-        # Lógica para o Arduino BLE SENSE baseado na classe/confiança da AI
         vision_col = 'classe_dominante' if 'classe_dominante' in df_live.columns else ('confianca' if 'confianca' in df_live.columns else None)
         if vision_col:
             vision_times = df_live.dropna(subset=[vision_col])['_time']
             if not vision_times.empty and vision_times.max() >= limite_3min:
                 vision_online = True
 
-    # HTML Helpers para o menu lateral
     color_on = "#00E5B4"
     color_off = "var(--txt-muted)"
     lbl_on = "ONLINE"
@@ -399,12 +396,6 @@ else:
         """, unsafe_allow_html=True)
         st.button("↩ Terminar Sessão", on_click=logout, use_container_width=True)
 
-        st.markdown("<div class='sb-section-title'>Diagnóstico de Sistema</div>", unsafe_allow_html=True)
-        st.markdown("""<div class="sb-row"><span class="sb-lbl">CPU Edge Gateway</span><span class="sb-val" style="color:var(--txt);">24%</span></div>""", unsafe_allow_html=True)
-        st.progress(24)
-        st.markdown("""<div class="sb-row" style="margin-top:12px;"><span class="sb-lbl">Sinal BLE Hub</span><span class="sb-val" style="color:var(--txt);">85%</span></div>""", unsafe_allow_html=True)
-        st.progress(85)
-        
         st.markdown(f"""
             <div class="sb-row" style="margin-top:14px;">
                 <span class="sb-lbl">InfluxDB</span>
@@ -544,78 +535,14 @@ else:
                     <h2 style="font-family: var(--mono); color: var(--txt); font-weight: 700; letter-spacing: 1px; margin-bottom: 8px;">TELEMETRIA OFFLINE</h2>
                     <p style="color: var(--txt-sub); font-size: 0.95rem; max-width: 480px; margin: 0 auto;">
                         Sem pacotes de dados recebidos nos últimos 3 minutos.<br><br>
-                        Verifique a ligação de rede do <span style="color:var(--txt);">EDGE Gateway</span> e a alimentação dos dispositivos <span style="color:var(--txt);">Nicla Sense ME</span> e <span style="color:var(--txt);">Arduino BLE 33</span>.
+                        Verifique a ligação de rede do <span style="color:var(--txt);">EDGE Gateway</span> e a alimentação dos dispositivos <span style="color:var(--txt);">Nicla Sense ME</span> e <span style="color:var(--txt);">Arduino BLE 33 SENSE</span>.
                     </p>
                 </div>
             """, unsafe_allow_html=True)
 
-        with col_g:
-            is_clim = any(f in fruta.lower() for f in ["maca","banana"])
-            lim_min = thresholds["clim_fresco"] if is_clim else thresholds["nclim_firme"]
-            lim_max = thresholds["clim_maduro"] if is_clim else thresholds["nclim_risco"]
-
-            fig_gauge = go.Figure(go.Indicator(
-                mode="gauge+number", value=voc,
-                number={'suffix':" Ω",'font':{'size':28,'color':'#E8EEF8','family':'Space Mono'}},
-                title={'text':"RESISTÊNCIA VOC (Ω)",'font':{'size':11,'color':'#5A7090','family':'DM Sans'}},
-                gauge={
-                    'axis':{'range':[None,25000],'tickwidth':1,'tickcolor':"#1E2D45",'tickfont':{'color':'#5A7090','size':10}},
-                    'bar':{'color':cor_hex,'thickness':0.22},
-                    'bgcolor':"#0E1420",'borderwidth':1,'bordercolor':"#1E2D45",
-                    'steps':[
-                        {'range':[0,lim_min],       'color':"rgba(255,68,85,0.1)"},
-                        {'range':[lim_min,lim_max], 'color':"rgba(255,184,0,0.1)"},
-                        {'range':[lim_max,25000],   'color':"rgba(0,229,180,0.1)"}
-                    ],
-                    'threshold':{'line':{'color':cor_hex,'width':2},'thickness':0.8,'value':voc}
-                }
-            ))
-            fig_gauge.update_layout(height=240, margin=dict(l=20,r=20,t=30,b=10), paper_bgcolor='rgba(0,0,0,0)')
-            st.markdown("<div class='chart-wrap' style='padding:8px 0 0;'>", unsafe_allow_html=True)
-            st.plotly_chart(fig_gauge, use_container_width=True)
-            st.markdown("</div>", unsafe_allow_html=True)
-
-        st.markdown("<br>", unsafe_allow_html=True)
-        c1,c2,c3,c4 = st.columns(4)
-        for col, (lbl, val, unit) in zip([c1,c2,c3,c4], [
-            ("IA CONFIDENCE", f"{conf*100 if conf<=1 else conf:.1f}", "%"),
-            ("TEMPERATURA",   f"{temp:.1f}", "°C"),
-            ("HUMIDADE",      f"{hum:.1f}",  "%"),
-            ("LATÊNCIA MQTT", "124",         "ms"),
-        ]):
-            col.markdown(f"""
-                <div class="metric-card">
-                    <div class="metric-label"><span class="metric-dot"></span>{lbl}</div>
-                    <div class="metric-value">{val}<span class="metric-unit">{unit}</span></div>
-                </div>
-            """, unsafe_allow_html=True)
-
-        st.markdown("""<div class="section-header"><h3>Evolução VOC — Última Hora</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
-
-        if not df_live.empty and 'voc_gas' in df_live.columns:
-            df_plot = df_live.dropna(subset=['voc_gas']).sort_values('_time')
-            x_col, y_col = '_time', 'voc_gas'
-        else:
-            df_plot = df_hist[df_hist["fruta"]==fruta].sort_values("timestamp").tail(48)
-            x_col, y_col = 'timestamp', 'voc_gas'
-
-        fig_line = go.Figure()
-        fig_line.add_trace(go.Scatter(
-            x=df_plot[x_col], y=df_plot[y_col],
-            mode='lines+markers',
-            line=dict(color='#00E5B4', width=2.5, shape='spline'),
-            marker=dict(size=5, color='#080C14', line=dict(width=1.5, color='#00E5B4')),
-            fill='tozeroy', fillcolor='rgba(0,229,180,0.06)',
-            hovertemplate='<b>%{x|%d/%m %H:%M}</b><br>%{y:.0f} Ω<extra></extra>'
-        ))
-        fig_line.update_layout(**PLOT_LAYOUT, height=280, yaxis_title="Ohms")
-        st.markdown("<div class='chart-wrap'>", unsafe_allow_html=True)
-        st.plotly_chart(fig_line, use_container_width=True)
-        st.markdown("</div>", unsafe_allow_html=True)
-
-    # ══════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════
     #  TAB 2 — ANÁLISE HISTÓRICA (Chefe de Loja)
-    # ══════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════
     if st.session_state.cargo == "Chefe de Loja":
         with tab_time:
             col_f1, col_f2, col_f3 = st.columns([1, 1, 2])
@@ -814,9 +741,9 @@ else:
                     st.markdown("</div></div>", unsafe_allow_html=True)
                 st.markdown('</div>', unsafe_allow_html=True)
 
-    # ══════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════
     #  TAB 3 — CALIBRAÇÃO E HARDWARE ADMIN
-    # ══════════════════════════════════════════════════════════
+    # ══════════════════════════════════════════════════════════════
     with tab_admin:
         st.markdown("<div class='calib-card'>", unsafe_allow_html=True)
         with st.form("calibration_form"):
@@ -848,7 +775,6 @@ else:
                 st.rerun()
         st.markdown("</div>", unsafe_allow_html=True)
         
-        # Secção de Administração de Hardware - Corrigida (sem usar divs vazias antes do st.button)
         if st.session_state.cargo == "Chefe de Loja":
             st.markdown("<br>", unsafe_allow_html=True)
             st.subheader("Configuração de Hardware RFID")
