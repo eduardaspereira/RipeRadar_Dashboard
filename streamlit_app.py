@@ -2,11 +2,16 @@ import streamlit as st
 import pandas as pd
 import plotly.graph_objects as go
 import plotly.express as px
-from influxdb_client import InfluxDBClient
-from datetime import datetime, timedelta, timezone
-import numpy as np
-import random
+from datetime import datetime
+import os
 import time
+
+# --- CONFIGURAÇÃO DOS TEUS DOIS CARTÕES ---
+# Substitui estes valores pelos UIDs reais que aparecerem no teu leitor
+UUID_OPERARIO = "AA BB CC DD"  
+UUID_CHEFE    = "11 22 33 44"  
+
+FICHEIRO_RFID = "rfid_login.txt"
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide", initial_sidebar_state="expanded")
@@ -15,37 +20,35 @@ st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide", i
 if 'logado' not in st.session_state:
     st.session_state.logado = False
     st.session_state.cargo = ""
-    st.session_state.ultimo_uid = ""
 
-def check_login_rfid():
-    """Consulta o InfluxDB Cloud para verificar logins por RFID nos últimos 15 segundos"""
-    try:
-        # Usa os parâmetros do teu .env / secrets
-        client = InfluxDBClient(url=st.secrets["INFLUX_URL"], token=st.secrets["INFLUX_TOKEN"], org=st.secrets["INFLUX_ORG"])
-        
-        query = (f'from(bucket: "{st.secrets["INFLUX_BUCKET"]}") |> range(start: -15s)'
-                 f' |> filter(fn: (r) => r["_measurement"] == "user_sessions")'
-                 f' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")'
-                 f' |> last()')
-        
-        tables = client.query_api().query(query)
-        
-        for table in tables:
-            for record in table.records:
-                status = record.values.get("status")
-                role = record.values.get("role")
-                uid = record.values.get("operator_id")
+def check_login_local_rfid():
+    """Verifica se o script Bluetooth escreveu um novo UID no ficheiro local"""
+    if os.path.exists(FICHEIRO_RFID):
+        try:
+            with open(FICHEIRO_RFID, "r") as f:
+                uid = f.read().strip()
+            
+            if uid:
+                # Remove o ficheiro imediatamente para o login só ser processado uma vez
+                os.remove(FICHEIRO_RFID)
                 
-                # Previne re-execuções em loop validando se é um novo UID detetado
-                if status == "login" and uid and uid != st.session_state.get("ultimo_uid"):
+                # Validação dos dois cartões específicos
+                if uid == UUID_OPERARIO:
                     st.session_state.logado = True
-                    st.session_state.ultimo_uid = uid
-                    st.session_state.cargo = "Operador Autorizado" if role == "operator" else "Administrador"
-                    st.toast(f"🔓 Acesso RFID Concedido!", icon="👋")
+                    st.session_state.cargo = "Operador"
+                    st.toast(f"🔓 Bem-vindo Operador! (UID: {uid})", icon="👋")
                     st.rerun()
-    except Exception as e:
-        pass         
-def verificar_login():
+                elif uid == UUID_CHEFE:
+                    st.session_state.logado = True
+                    st.session_state.cargo = "Chefe de Loja"
+                    st.toast(f"🔓 Bem-vindo Chefe! (UID: {uid})", icon="⚡")
+                    st.rerun()
+                else:
+                    st.toast(f"❌ Cartão não autorizado (UID: {uid})", icon="⚠️")
+        except Exception as e:
+            pass
+
+def verificar_login_manual():
     user = st.session_state.user_input
     pw   = st.session_state.pass_input
     if user == "chefe" and pw == "admin123":
@@ -60,11 +63,31 @@ def verificar_login():
 def logout():
     st.session_state.logado = False
     st.session_state.cargo  = ""
-    st.session_state.ultimo_uid = ""
+    if os.path.exists(FICHEIRO_RFID):
+        os.remove(FICHEIRO_RFID)
 
+# Fluxo de ecrãs
 if not st.session_state.logado:
-    check_login_rfid()
+    check_login_local_rfid()
     
+    st.title("🔒 RipeRadar OS - Login")
+    st.text_input("Utilizador", key="user_input")
+    st.text_input("Palavra-passe", type="password", key="pass_input")
+    st.button("Entrar", on_click=verificar_login_manual)
+    
+    st.info("A aguardar aproximação de cartão RFID via Bluetooth...")
+    
+    # Faz o Streamlit verificar o ficheiro local a cada 1 segundo
+    time.sleep(1)
+    st.rerun()
+else:
+    # --- 3. ÁREA PROTEGIDA (DASHBOARD) ---
+    st.sidebar.title(f"Bem-vindo, {st.session_state.cargo}")
+    st.sidebar.button("Terminar Sessão", on_click=logout)
+    
+    st.title("📊 Painel de Controlo RipeRadar")
+    st.write(f"Sessão iniciada localmente como: **{st.session_state.cargo}**")
+    # O resto do teu código do dashboard continua aqui...
 # ══════════════════════════════════════════════════════════════
 #  CSS
 # ══════════════════════════════════════════════════════════════
