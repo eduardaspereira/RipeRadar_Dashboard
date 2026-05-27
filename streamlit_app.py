@@ -8,14 +8,9 @@ import random
 import time
 import requests
 
-# ══════════════════════════════════════════════════════════════
-#  CONFIGURAÇÃO DOS CARTÕES RFID REAIS (Detetados via BLE)
-# ══════════════════════════════════════════════════════════════
-UUID_OPERARIO = "D2 D5 45 02"  # Teu primeiro cartão captado
-UUID_CHEFE    = "9E 5C 36 02"  # Teu segundo cartão captado
-
-# URL do mini-servidor que está a correr no teu PC Windows
-URL_PONTE_LOCAL = "http://127.0.0.1:8000/get_rfid"
+# --- CONFIGURAÇÃO DA PORTA SÉRIE (Ajusta a COM para o teu caso) ---
+PORTA_SERIE = "COM3"  
+BAUD_RATE = 115200
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
 st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide", initial_sidebar_state="expanded")
@@ -25,32 +20,7 @@ if 'logado' not in st.session_state:
     st.session_state.logado = False
     st.session_state.cargo = ""
 
-def check_login_local_rfid():
-    """Tenta ler o último cartão guardado na ponte Bluetooth do teu PC local"""
-    try:
-        # Faz um pedido ultra-rápido ao teu script de background
-        resposta = requests.get(URL_PONTE_LOCAL, timeout=0.2)
-        if resposta.status_code == 200:
-            uid = resposta.json().get("uid", "").strip().upper()
-            
-            if uid:
-                if uid == UUID_OPERARIO:
-                    st.session_state.logado = True
-                    st.session_state.cargo = "Operador"
-                    st.toast(f"🔓 Acesso RFID Concedido: {st.session_state.cargo}", icon="👋")
-                    st.rerun()
-                elif uid == UUID_CHEFE:
-                    st.session_state.logado = True
-                    st.session_state.cargo = "Chefe de Loja"
-                    st.toast(f"🔓 Acesso RFID Concedido: {st.session_state.cargo}", icon="⚡")
-                    st.rerun()
-                else:
-                    st.toast(f"❌ Cartão RFID Não Autorizado (UID: {uid})", icon="⚠️")
-    except Exception:
-        # Ignora em silêncio se o script local estiver desligado ou acedido fora do teu PC
-        pass
-
-def verificar_login():
+def verificar_login_manual():
     user = st.session_state.user_input
     pw   = st.session_state.pass_input
     if user == "chefe" and pw == "admin123":
@@ -67,28 +37,59 @@ def logout():
     st.session_state.cargo  = ""
     st.rerun()
 
-# --- FLUXO DE TELAS ---
+# --- FUNÇÃO DE LEITURA DO ARDUINO (RFID) ---
+def verificar_rfid():
+    try:
+        # Abre a conexão com timeout curto para não bloquear a renderização da página
+        ser = serial.Serial(PORTA_SERIE, BAUD_RATE, timeout=0.1)
+        linha = ser.readline().decode('utf-8').strip()
+        ser.close()
+        
+        if linha:
+            if linha == "LOGIN:CHEFE":
+                st.session_state.logado = True
+                st.session_state.cargo = "Chefe de Loja"
+                st.success("Login efetuado via RFID: Chefe de Loja!")
+                st.rerun()
+            elif linha == "LOGIN:OPERADOR":
+                st.session_state.logado = True
+                st.session_state.cargo = "Operador"
+                st.success("Login efetuado via RFID: Operador!")
+                st.rerun()
+            elif linha == "LOGIN:DESCONHECIDO":
+                st.error("Cartão RFID não reconhecido.")
+    except Exception as e:
+        # Se o Arduino estiver desligado ou a porta ocupada, falha silenciosamente 
+        # para permitir que possas continuar a usar o login manual por teclado.
+        pass
+
+# Executa a verificação do RFID a cada atualização de página
 if not st.session_state.logado:
-    check_login_local_rfid()
+    verificar_rfid()
+
+# --- 3. INTERFACE DE UTILIZADOR ---
+if not st.session_state.logado:
+    st.title("🍎 RipeRadar OS - Login")
+    st.subheader("Aproxime o seu cartão RFID do leitor ou introduza os dados:")
     
-    st.title("🔒 RipeRadar OS - Login")
-    st.text_input("Utilizador", key="user_input")
-    st.text_input("Palavra-passe", type="password", key="pass_input")
-    st.button("Entrar", on_click=verificar_login)
-    
-    st.info("A aguardar aproximação de cartão RFID via Bluetooth...")
-    
-    # Atualiza a página a cada 1.5 segundos para escutar a porta local do PC
-    time.sleep(1.5)
+    with st.form("form_login"):
+        st.text_input("Utilizador", key="user_input")
+        st.text_input("Palavra-Passe", type="password", key="pass_input")
+        st.form_submit_button("Entrar Manualmente", on_click=verificar_login_manual)
+        
+    # Mecanismo simples de auto-refresh para continuar a escutar o RFID sem interação do utilizador
+    time.sleep(0.5)
     st.rerun()
+
 else:
-    # --- 3. ÁREA PROTEGIDA (DASHBOARD) ---
+    # --- ÁREA LOGADA DO SISTEMA ---
     st.sidebar.title(f"Bem-vindo, {st.session_state.cargo}")
     st.sidebar.button("Terminar Sessão", on_click=logout)
     
-    st.title("📊 Painel de Controlo RipeRadar")
+    st.title("Painel de Controlo Principal")
     st.write(f"Sessão iniciada como: **{st.session_state.cargo}**")
-    # O resto do teu código do dashboard continua aqui...
+    
+    # Resto do teu código do dashboard (Gráficos, InfluxDB, etc.) vai aqui em baixo...
 # ══════════════════════════════════════════════════════════════
 #  CSS
 # ══════════════════════════════════════════════════════════════
