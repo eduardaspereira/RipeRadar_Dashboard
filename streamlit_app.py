@@ -1,5 +1,10 @@
 import streamlit as st
 import pandas as pd
+import plotly.graph_objects as go
+import numpy as np
+import random
+import time
+from datetime import datetime, timedelta
 from influxdb_client import InfluxDBClient
 from streamlit_autorefresh import st_autorefresh
 import extra_streamlit_components as stx
@@ -13,27 +18,40 @@ def get_manager():
     return stx.CookieManager()
 
 cookie_manager = get_manager()
-
-# Lê o cookie para saber se este PC é o terminal
 is_terminal = cookie_manager.get(cookie="terminal_loja") == "true"
 
 # --- 3. CREDENCIAIS (Usando st.secrets) ---
-INFLUX_URL = "https://eu-central-1-1.aws.cloud2.influxdata.com"
-INFLUX_TOKEN = st.secrets["INFLUX_TOKEN"]
-INFLUX_ORG = st.secrets["INFLUX_ORG"]
-INFLUX_BUCKET = st.secrets["INFLUX_BUCKET"]
+try:
+    INFLUX_URL    = st.secrets["INFLUX_URL"]
+    INFLUX_TOKEN  = st.secrets["INFLUX_TOKEN"]
+    INFLUX_ORG    = st.secrets["INFLUX_ORG"]
+    INFLUX_BUCKET = st.secrets["INFLUX_BUCKET"]
+except Exception as e:
+    print("Erro nas credencias influx")
 
 # --- 4. ESTADO DA SESSÃO ---
 if 'logado' not in st.session_state:
     st.session_state.logado = False
     st.session_state.cargo = ""
 
+def verificar_login_manual():
+    """Validação para quando o login é feito via teclado"""
+    user = st.session_state.user_input
+    pw   = st.session_state.pass_input
+    if user == "chefe" and pw == "admin123":
+        st.session_state.logado = True
+        st.session_state.cargo = "Chefe de Loja"
+    elif user == "operador" and pw == "op123":
+        st.session_state.logado = True
+        st.session_state.cargo = "Operador"
+    else:
+        st.error("Credenciais inválidas.")
+
 def verificar_login_rfid():
-    """Consulta o InfluxDB para ver se houve login nos últimos 5 segundos"""
+    """Consulta o InfluxDB para ver se houve login RFID nos últimos 5 segundos"""
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
         query_api = client.query_api()
-        
         query = f'''
         from(bucket: "{INFLUX_BUCKET}")
           |> range(start: -5s)
@@ -43,7 +61,6 @@ def verificar_login_rfid():
           |> last()
         '''
         result = query_api.query(org=INFLUX_ORG, query=query)
-        
         for table in result:
             for record in table.records:
                 user_lido = record.get_value()
@@ -58,64 +75,11 @@ def verificar_login_rfid():
     except Exception:
         pass 
 
-# --- 5. LÓGICA DE INTERFACE ---
-if not st.session_state.logado:
-    st.title("🍎 RipeRadar OS")
-    
-    # SE O PC ESTIVER REGISTADO COMO TERMINAL:
-    if is_terminal:
-        st_autorefresh(interval=2000, limit=None, key="login_refresh")
-        st.info("📡 Terminal Autorizado: Aproxime o cartão do leitor para entrar.")
-        verificar_login_rfid()
-    # SE FOR UM PC QUALQUER:
-    else:
-        st.warning("🔒 Computador não registado. Por favor, faça login manual.")
+def logout():
+    st.session_state.logado = False
+    st.session_state.cargo = ""
 
-    # Formulário manual (Expandido se não for terminal, fechado se for)
-    with st.expander("Acesso Manual", expanded=not is_terminal):
-        user_input = st.text_input("User")
-        pass_input = st.text_input("Password", type="password")
-        if st.button("Entrar"):
-            if user_input == "chefe" and pass_input == "admin123":
-                st.session_state.logado = True
-                st.session_state.cargo = "Chefe de Loja"
-                st.rerun()
-            elif user_input == "operador" and pass_input == "op123":
-                st.session_state.logado = True
-                st.session_state.cargo = "Operador"
-                st.rerun()
-            else:
-                st.error("Credenciais inválidas.")
 
-else:
-    # --- ÁREA LOGADA (DASHBOARD) ---
-    st.success(f"Bem-vindo(a), {st.session_state.cargo}!")
-    
-    # [O teu código dos gráficos do Plotly e métricas vai aqui]
-    
-    st.markdown("---")
-    
-    # --- ÁREA DE ADMINISTRAÇÃO (Apenas o Chefe vê isto) ---
-    if st.session_state.cargo == "Chefe de Loja":
-        st.subheader("⚙️ Configuração de Hardware")
-        st.write("Usa esta zona para autorizar este PC a escutar o leitor RFID.")
-        
-        if not is_terminal:
-            if st.button("💻 Registar este PC como Terminal de Loja"):
-                # Guarda um cookie que dura 365 dias
-                cookie_manager.set("terminal_loja", "true", max_age=31536000, key="set_term")
-                st.success("PC registado! Faz Logout para testar o cartão.")
-        else:
-            st.info("✅ Este computador está configurado como Terminal RFID.")
-            if st.button("❌ Remover Registo deste PC"):
-                cookie_manager.delete("terminal_loja", key="del_term")
-                st.warning("Registo removido.")
-
-    # Botão de Logout normal
-    if st.button("Terminar Sessão"):
-        st.session_state.logado = False
-        st.session_state.cargo = ""
-        st.rerun()
 # ══════════════════════════════════════════════════════════════
 #  CSS
 # ══════════════════════════════════════════════════════════════
