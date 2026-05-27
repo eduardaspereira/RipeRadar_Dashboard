@@ -15,8 +15,37 @@ st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide", i
 if 'logado' not in st.session_state:
     st.session_state.logado = False
     st.session_state.cargo = ""
+    st.session_state.ultimo_uid = ""
 
-def verificar_login():
+def check_login_rfid():
+    """Consulta o InfluxDB para ver se algum cartão foi passado recentemente"""
+    try:
+        client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+        # Query corrigida com pivot() para trazer todos os campos alinhados por tempo
+        query = (f'from(bucket: "{INFLUX_BUCKET}") |> range(start: -20s)'
+                 f' |> filter(fn: (r) => r["_measurement"] == "user_sessions")'
+                 f' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")'
+                 f' |> last()')
+        
+        tables = client.query_api().query(query)
+        
+        for table in tables:
+            for record in table.records:
+                # Com o pivot, o status e o role ficam disponíveis como chaves diretamente
+                status = record.values.get("status")
+                role = record.values.get("role")
+                uid = record.values.get("operator_id") # Tag vem sempre incluída
+                
+                if status == "login" and uid and uid != st.session_state.get("ultimo_uid"):
+                    st.session_state.logado = True
+                    st.session_state.ultimo_uid = uid
+                    st.session_state.cargo = "Chefe de Loja" if role == "manager" else "Operador"
+                    st.toast(f"🔓 Login via RFID efetuado: {st.session_state.cargo}!", icon="👋")
+                    st.rerun()
+    except Exception as e:
+        pass
+        
+def verificar_login_manual():
     user = st.session_state.user_input
     pw   = st.session_state.pass_input
     if user == "chefe" and pw == "admin123":
@@ -26,12 +55,16 @@ def verificar_login():
         st.session_state.logado = True
         st.session_state.cargo  = "Operador"
     else:
-        st.error("Credenciais inválidas. Verifique o seu ID e Palavra-Passe.")
+        st.error("Credenciais inválidas.")
 
 def logout():
     st.session_state.logado = False
     st.session_state.cargo  = ""
+    st.session_state.ultimo_uid = ""
 
+if not st.session_state.logado:
+    check_login_rfid()
+    
 # ══════════════════════════════════════════════════════════════
 #  CSS
 # ══════════════════════════════════════════════════════════════
