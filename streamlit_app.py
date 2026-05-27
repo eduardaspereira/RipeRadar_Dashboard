@@ -6,15 +6,15 @@ from datetime import datetime, timedelta
 import numpy as np
 import random
 import time
-import requests  # Adicionado para falar com o teu script local
+import requests
 
 # ══════════════════════════════════════════════════════════════
-#  CONFIGURAÇÃO DOS CARTÕES RFID (Substitui com os teus UIDs reais)
+#  CONFIGURAÇÃO DOS CARTÕES RFID REAIS (Detetados via BLE)
 # ══════════════════════════════════════════════════════════════
-UUID_OPERARIO = "AA BB CC DD"  # Substitui pelo UID do operário
-UUID_CHEFE    = "11 22 33 44"  # Substitui pelo UID do chefe
+UUID_OPERARIO = "D2 D5 45 02"  # Teu primeiro cartão captado
+UUID_CHEFE    = "9E 5C 36 02"  # Teu segundo cartão captado
 
-# URL do mini-servidor que criámos no teu PC Windows
+# URL do mini-servidor que está a correr no teu PC Windows
 URL_PONTE_LOCAL = "http://127.0.0.1:8000/get_rfid"
 
 # --- 1. CONFIGURAÇÃO DA PÁGINA ---
@@ -28,7 +28,7 @@ if 'logado' not in st.session_state:
 def check_login_local_rfid():
     """Tenta ler o último cartão guardado na ponte Bluetooth do teu PC local"""
     try:
-        # Faz um pedido ultra-rápido ao teu script de background (timeout de 0.2s para não travar a app)
+        # Faz um pedido ultra-rápido ao teu script de background
         resposta = requests.get(URL_PONTE_LOCAL, timeout=0.2)
         if resposta.status_code == 200:
             uid = resposta.json().get("uid", "").strip().upper()
@@ -47,7 +47,7 @@ def check_login_local_rfid():
                 else:
                     st.toast(f"❌ Cartão RFID Não Autorizado (UID: {uid})", icon="⚠️")
     except Exception:
-        # Se falhar (por exemplo, se o script do PC não estiver ligado ou se o site for aberto noutro PC), ignora em silêncio
+        # Ignora em silêncio se o script local estiver desligado ou acedido fora do teu PC
         pass
 
 def verificar_login():
@@ -78,7 +78,7 @@ if not st.session_state.logado:
     
     st.info("A aguardar aproximação de cartão RFID via Bluetooth...")
     
-    # Atualiza a página a cada 1.5 segundos para verificar se passaste o cartão
+    # Atualiza a página a cada 1.5 segundos para escutar a porta local do PC
     time.sleep(1.5)
     st.rerun()
 else:
@@ -88,6 +88,7 @@ else:
     
     st.title("📊 Painel de Controlo RipeRadar")
     st.write(f"Sessão iniciada como: **{st.session_state.cargo}**")
+    # O resto do teu código do dashboard continua aqui...
 # ══════════════════════════════════════════════════════════════
 #  CSS
 # ══════════════════════════════════════════════════════════════
