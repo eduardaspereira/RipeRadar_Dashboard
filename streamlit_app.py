@@ -257,13 +257,21 @@ div[data-baseweb="select"] > div { background: var(--surface) !important; border
 #  THRESHOLDS & FUNÇÕES BASE (COM JSON) - AGORA COM A LÓGICA CORRETA
 # ══════════════════════════════════════════════════════════════
 def carregar_calibracao():
-    if os.path.exists("calibracao.json"):
-        with open("calibracao.json", "r") as f:
-            return json.load(f)
-    return {
+    limites_predefinidos = {
         "clim_maduro": 17000, "clim_podre": 13000,
         "nclim_risco": 16000, "nclim_podre": 13000
     }
+    
+    if os.path.exists("calibracao.json"):
+        try:
+            with open("calibracao.json", "r") as f:
+                dados = json.load(f)
+                if "clim_podre" in dados:
+                    return dados
+        except Exception:
+            pass
+            
+    return limites_predefinidos
 
 def guardar_calibracao(limites):
     with open("calibracao.json", "w") as f:
