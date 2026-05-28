@@ -716,31 +716,40 @@ else:
                     </div>
                     """, unsafe_allow_html=True)
 
-                    # --- GRÁFICO SUBSTITUÍDO: CONTAGEM DE LABELS AO LONGO DO TEMPO ---
-                    st.markdown("""<div class="section-header"><h3>Contagem de Produtos ao Longo do Tempo</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
+                    # --- GRÁFICO SUBSTITUÍDO: CONTAGEM DE LABELS AO LONGO DO TEMPO (Última hora) ---
+                    st.markdown("""<div class="section-header"><h3>Contagem de Produtos na Última Hora</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
 
-                    df_daily = (df_periodo.assign(dia=lambda d: d["_time"].dt.date)
-                                .groupby(["dia", "classe_dominante"])
-                                .size()
-                                .reset_index(name="contagem"))
-                    
-                    fig_count = go.Figure()
-                    
-                    for f_nome in df_daily["classe_dominante"].unique():
-                        dd = df_daily[df_daily["classe_dominante"]==f_nome]
-                        cor_linha = obter_cor_estado(f_nome)
+                    # Filtrar estritamente para a última hora a contar do momento atual
+                    agora_pt_hist = pd.Timestamp.utcnow().tz_convert('Europe/Lisbon')
+                    limite_1h = agora_pt_hist - pd.Timedelta(hours=1)
+                    df_1h = df_periodo[df_periodo["_time"] >= limite_1h]
+
+                    if df_1h.empty:
+                        st.info("Não existem dados referentes à última hora de operações para desenhar o gráfico.")
+                    else:
+                        # Agrupar a cada 1 minuto
+                        df_minuto = (df_1h.assign(minuto=lambda d: d["_time"].dt.floor("min"))
+                                    .groupby(["minuto", "classe_dominante"])
+                                    .size()
+                                    .reset_index(name="contagem"))
                         
-                        fig_count.add_trace(go.Scatter(
-                            x=dd["dia"], y=dd["contagem"], mode='lines+markers', name=formatar_nome(f_nome),
-                            line=dict(color=cor_linha, width=2.5, shape='spline'),
-                            fill='tozeroy', fillcolor="rgba(0,0,0,0)",
-                            hovertemplate=f'<b>%{{x}}</b><br>{formatar_nome(f_nome)}: %{{y}} registos<extra></extra>'
-                        ))
+                        fig_count = go.Figure()
+                        
+                        for f_nome in df_minuto["classe_dominante"].unique():
+                            dd = df_minuto[df_minuto["classe_dominante"]==f_nome]
+                            cor_linha = obter_cor_estado(f_nome)
+                            
+                            fig_count.add_trace(go.Scatter(
+                                x=dd["minuto"], y=dd["contagem"], mode='lines+markers', name=formatar_nome(f_nome),
+                                line=dict(color=cor_linha, width=2.5, shape='spline'),
+                                fill='tozeroy', fillcolor="rgba(0,0,0,0)",
+                                hovertemplate=f'<b>%{{x|%H:%M}}</b><br>{formatar_nome(f_nome)}: %{{y}} registos<extra></extra>'
+                            ))
 
-                    layout_count = {**PLOT_LAYOUT, "height": 340, "yaxis_title": "Contagem de Registos"}
-                    fig_count.update_layout(**layout_count)
-                    
-                    st.plotly_chart(fig_count, use_container_width=True)
+                        layout_count = {**PLOT_LAYOUT, "height": 340, "yaxis_title": "Contagem de Registos"}
+                        fig_count.update_layout(**layout_count)
+                        
+                        st.plotly_chart(fig_count, use_container_width=True)
 
                     st.markdown("<br>", unsafe_allow_html=True)
                     st.markdown("""<div class="section-header"><h3>Registo de Eventos de Qualidade</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
