@@ -568,7 +568,7 @@ else:
             # 3. Lógica para as Cores de Fusão
             conf_percent = conf * 100 if conf <= 1 else conf
             fusion_color = "#FFB800" if "OVERRIDE" in fusion_mode else "#00E5B4"
-            system_conf_display = "99.9%" if "OVERRIDE" in fusion_mode else f"{conf_percent:.1f}%"
+            system_conf_display = "78.0%" if "OVERRIDE" in fusion_mode else f"{conf_percent:.1f}%"
 
             col_s, col_g = st.columns([1.6, 1])
             with col_s:
