@@ -36,6 +36,8 @@ except Exception:
 if 'logado' not in st.session_state:
     st.session_state.logado = False
     st.session_state.cargo = ""
+if 'override_desconhecido' not in st.session_state:
+    st.session_state.override_desconhecido = None
 
 def verificar_login_manual():
     user = st.session_state.user_input
@@ -75,8 +77,28 @@ def verificar_login_rfid():
                     st.rerun()
     except Exception:
         pass 
+
+def fetch_historico_reposicoes(dias=90):
+    """Procura os carimbos de data/hora de todas as tags de Nova Carga passadas"""
+    try:
+        client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+        query = f'''
+        from(bucket: "{INFLUX_BUCKET}")
+          |> range(start: -{dias}d)
+          |> filter(fn: (r) => r["_measurement"] == "rfid_operacoes")
+          |> filter(fn: (r) => r["_field"] == "acao")
+          |> filter(fn: (r) => r["_value"] == "nova_carga")
+        '''
+        result = client.query_api().query(query)
+        timestamps = []
+        for table in result:
+            for record in table.records:
+                timestamps.append(pd.to_datetime(record.get_time()))
+        return sorted(list(set(timestamps)))
+    except:
+        return []
+
 def fetch_ultima_reposicao():
-    """Vai à base de dados procurar a que horas foi passada a Tag de Nova Carga"""
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
         query = f'''
@@ -90,7 +112,7 @@ def fetch_ultima_reposicao():
         result = client.query_api().query(query)
         for table in result:
             for record in table.records:
-                return record.get_time() # Retorna a data/hora exata do scan
+                return record.get_time()
         return None
     except:
         return None
@@ -98,6 +120,7 @@ def fetch_ultima_reposicao():
 def logout():
     st.session_state.logado = False
     st.session_state.cargo = ""
+    st.session_state.override_desconhecido = None
 
 # ══════════════════════════════════════════════════════════════
 #  CSS INJETADO
@@ -251,21 +274,18 @@ if 'thresholds' not in st.session_state:
 thresholds = st.session_state.thresholds
 
 def formatar_nome(raw_name):
-    """Limpa nomes como 'Banana_podre' para 'Banana Podre'"""
     if raw_name == "Todos": return "Todos os Produtos"
     return str(raw_name).replace('_', ' ').title()
 
 def obter_cor_estado(raw_name):
-    """Atribui cor baseada na keyword do estado da fruta"""
     nome_min = str(raw_name).lower()
-    if 'fresc' in nome_min or 'firm' in nome_min: return "#00E5B4" # Verde
-    if 'madur' in nome_min or 'risco' in nome_min: return "#FFB800" # Amarelo
-    if 'podre' in nome_min or 'degrad' in nome_min: return "#FF4455" # Vermelho
-    return "#8BA0BC" # Cinza Azulado base
+    if 'fresc' in nome_min or 'firm' in nome_min: return "#00E5B4"
+    if 'madur' in nome_min or 'risco' in nome_min: return "#FFB800"
+    if 'podre' in nome_min or 'degrad' in nome_min: return "#FF4455"
+    return "#8BA0BC"
 
 meses_pt = {1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"}
 
-# ── LEITURA REAL DA BASE DE DADOS (INFLUXDB) ──
 def fetch_live_data():
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
@@ -360,7 +380,6 @@ if not st.session_state.logado:
 #  DASHBOARD
 # ══════════════════════════════════════════════════════════════
 else:
-    # ── VERIFICAÇÃO DE TELEMETRIA RECENTE (ÚLTIMOS 3 MIN) ─────
     df_live = fetch_live_data()
     agora = datetime.now(timezone.utc)
     limite_3min = agora - timedelta(minutes=3)
@@ -431,7 +450,6 @@ else:
     else:
         chip_html = '<span class="offline-chip"><span class="offline-dot"></span>HISTORIC (NO DATA)</span>'
 
-    # Verifica a última vez que a Tag de Rastreabilidade foi passada
     ultima_rep = fetch_ultima_reposicao()
     lote_html = ""
     if ultima_rep:
@@ -459,7 +477,6 @@ else:
         </div>
     """, unsafe_allow_html=True)
 
-    # ── TABS ──────────────────────────────────────────────────
     if st.session_state.cargo == "Chefe de Loja":
         tab_dash, tab_time, tab_admin = st.tabs(["MONITORIZAÇÃO", "ANÁLISE HISTÓRICA", "CALIBRAÇÃO"])
     else:
@@ -473,6 +490,10 @@ else:
             conf   = float(latest.get('confianca', 0.0))
             temp   = float(latest.get('temp', 0.0))
             hum    = float(latest.get('hum', 0.0))
+
+            # Aplica override forçado pelo Chefe de Loja se existir na sessão
+            if fruta.lower() == "desconhecido" and st.session_state.override_desconhecido:
+                fruta = st.session_state.override_desconhecido
 
             estado, cor_hex, acao, sev = processar_decisao(fruta, voc)
             sev_bg  = {"success":"rgba(0,229,180,0.06)", "warning":"rgba(255,184,0,0.06)", "danger":"rgba(255,68,85,0.06)"}
@@ -490,6 +511,21 @@ else:
                         <span class="status-action" style="color:{cor_hex};border-color:{sev_bdr[sev]};background:rgba(0,0,0,0.2);">▶ {acao}</span>
                     </div>
                 """, unsafe_allow_html=True)
+                
+                # INTERFACE DE OVERRIDE EXCLUSIVA PARA O CHEFE DE LOJA
+                if latest.get('classe_dominante', 'Desconhecido').lower() == "desconhecido":
+                    st.markdown("<br>", unsafe_allow_html=True)
+                    if st.session_state.cargo == "Chefe de Loja":
+                        with st.form("form_override_fruta"):
+                            st.warning("⚠️ **Alerta de Rastreabilidade:** A IA classificou este lote como Desconhecido.")
+                            nova_label = st.selectbox("Corrigir identidade do alvo:", ["maca", "banana", "laranja"])
+                            if st.form_submit_button("Forçar Identificação de Produto"):
+                                st.session_state.override_desconhecido = nova_label
+                                st.success(f"Identidade alterada com sucesso para {nova_label.title()}!")
+                                time.sleep(0.5)
+                                st.rerun()
+                    else:
+                        st.info("ℹ️ Rótulo classificado como Desconhecido pela IA do Edge Gateway. Apenas um Chefe de Loja autenticado pode forçar esta identidade.")
 
             with col_g:
                 is_clim = any(f in fruta.lower() for f in ["maca","banana"])
@@ -561,15 +597,21 @@ else:
     # ══════════════════════════════════════════════════════════════
     if st.session_state.cargo == "Chefe de Loja":
         with tab_time:
-            col_f1, col_f2, col_f3 = st.columns([1, 1, 2])
+            col_f1, col_f2, col_f3, col_f4 = st.columns([1, 1, 1, 1.5])
             
-            # Fetch base data based on days
             with col_f1:
                 periodo = st.selectbox("Período", ["Últimos 7 dias","Últimos 30 dias","Últimos 90 dias"], index=1)
+            
             dias_map = {"Últimos 7 dias":7, "Últimos 30 dias":30, "Últimos 90 dias":90}
             df_hist_real = fetch_history_data(dias_map[periodo])
+            listagem_reposicoes = fetch_historico_reposicoes(dias_map[periodo])
 
-            # Generate dynamic clean options for the fruit filter
+            # Mapeamento dinâmico de fatias temporais para criação de lotes virtuais
+            lotes_disponiveis = ["Todos os Lotes"]
+            if listagem_reposicoes:
+                for idx in range(len(listagem_reposicoes)):
+                    lotes_disponiveis.append(f"Lote #{idx + 1}")
+
             unique_raw_classes = df_hist_real['classe_dominante'].dropna().unique().tolist() if not df_hist_real.empty and 'classe_dominante' in df_hist_real.columns else []
             options_produtos = ["Todos"] + sorted(unique_raw_classes)
 
@@ -577,6 +619,9 @@ else:
                 fruta_filtro = st.selectbox("Produto / Estado", options_produtos, format_func=formatar_nome)
                 
             with col_f3:
+                lote_filtro = st.selectbox("Filtrar por Lote", lotes_disponiveis)
+                
+            with col_f4:
                 sev_filtro = st.multiselect(
                     "Mostrar eventos",
                     ["success","warning","danger"],
@@ -589,12 +634,21 @@ else:
             else:
                 df_periodo = df_hist_real.dropna(subset=['voc_gas', 'classe_dominante']).copy()
                 
-                # Apply filter
+                # Segmentação e filtragem baseada na janela do lote escolhido
+                if lote_filtro != "Todos os Lotes" and listagem_reposicoes:
+                    idx_lote = int(lote_filtro.split("#")[1]) - 1
+                    data_inicio_lote = listagem_reposicoes[idx_lote]
+                    if idx_lote < len(listagem_reposicoes) - 1:
+                        data_fim_lote = listagem_reposicoes[idx_lote + 1]
+                        df_periodo = df_periodo[(df_periodo["_time"] >= data_inicio_lote) & (df_periodo["_time"] < data_fim_lote)]
+                    else:
+                        df_periodo = df_periodo[df_periodo["_time"] >= data_inicio_lote]
+
                 if fruta_filtro != "Todos":
                     df_periodo = df_periodo[df_periodo["classe_dominante"] == fruta_filtro]
 
                 if df_periodo.empty:
-                    st.info("Sem leituras reais para a seleção atual.")
+                    st.info("Sem leituras reais para a seleção de filtros atual.")
                 else:
                     resultados = df_periodo.apply(lambda r: processar_decisao(r['classe_dominante'], r['voc_gas']), axis=1)
                     df_periodo['estado'] = [r[0] for r in resultados]
@@ -641,8 +695,6 @@ else:
 
                     layout_voc = {**PLOT_LAYOUT, "height": 340, "yaxis_title": "Resistência (Ω)"}
                     fig_voc.update_layout(**layout_voc)
-                    
-                    # Sem a div wrapper que causava a caixa em branco!
                     st.plotly_chart(fig_voc, use_container_width=True)
 
                     st.markdown("<br>", unsafe_allow_html=True)
@@ -672,7 +724,6 @@ else:
 
                             badge_html = f"<span class='tl-badge' style='color:#FF4455;border-color:rgba(255,68,85,0.3);'>⬤ {n_crit_dia} críticos</span>" if n_crit_dia > 0 else ""
 
-                            # Removemos as quebras de linha em branco dentro desta formatação
                             st.markdown(f"""
                             <div class="tl-item">
                                 <div class="tl-dot {dot_cls}"></div>
@@ -692,6 +743,9 @@ else:
                                 trend    = "↘ A degradar" if g_fruta["voc_gas"].iloc[-1] < g_fruta["voc_gas"].iloc[0] else "↗ Estável"
                                 trend_c  = "#FF4455" if "degradar" in trend else "#00E5B4"
 
+                                # Nova secção gerada dinamicamente com as horas precisas de cada registo
+                                lista_horas_html = "".join([f"<span style='background:rgba(232,238,248,0.05); padding:2px 6px; border-radius:4px; font-family:var(--mono); color:var(--txt); font-size:0.75rem;'>⏱️ {t.astimezone().strftime('%H:%M:%S')}</span> " for t in g_fruta["_time"]])
+
                                 st.markdown(f"""
                                 <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;">
                                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -703,6 +757,10 @@ else:
                                     </div>
                                     <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
                                         <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{pior['estado']}</span>
+                                    </div>
+                                    <div style="margin-bottom:12px;">
+                                        <div style="font-size:0.68rem;color:var(--txt-muted);font-family:var(--mono);margin-bottom:4px;text-transform:uppercase;">Horas dos Registos:</div>
+                                        <div style="display:flex;gap:6px;flex-wrap:wrap;">{lista_horas_html}</div>
                                     </div>
                                     <div style="display:flex;gap:20px;font-size:0.82rem;color:var(--txt-muted);flex-wrap:wrap;">
                                         <span>VOC médio diário: <span style="font-family:var(--mono);color:var(--txt);">{voc_med/1000:.2f} kΩ</span></span>
