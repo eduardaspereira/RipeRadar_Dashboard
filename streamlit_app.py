@@ -315,7 +315,7 @@ def fetch_live_data():
         
         if isinstance(df, pd.DataFrame) and not df.empty:
             df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
-            # CORREÇÃO: Forçar a ordenação cronológica crescente
+            # Forçar a ordenação cronológica crescente
             df = df.sort_values(by='_time', ascending=True).reset_index(drop=True)
             return df
         return pd.DataFrame()
@@ -335,7 +335,7 @@ def fetch_history_data(dias):
         
         if isinstance(df, pd.DataFrame) and not df.empty:
             df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
-            # CORREÇÃO: Forçar a ordenação cronológica crescente
+            # Forçar a ordenação cronológica crescente
             df = df.sort_values(by='_time', ascending=True).reset_index(drop=True)
             return df
         return pd.DataFrame()
@@ -744,7 +744,15 @@ else:
                                     </div>
                             """, unsafe_allow_html=True)
 
+                            # Agrupar por fruto e ordenar pelo evento mais recente de cada fruto
+                            grupos_ordenados = []
                             for fruta_id, g_fruta in grupo_dia.groupby("classe_dominante"):
+                                grupos_ordenados.append((fruta_id, g_fruta, g_fruta["_time"].max()))
+                            
+                            # Ordena de forma descendente (mais recentes primeiro)
+                            grupos_ordenados.sort(key=lambda x: x[2], reverse=True)
+
+                            for fruta_id, g_fruta, _ in grupos_ordenados:
                                 g_fruta  = g_fruta.sort_values("_time")
                                 pior     = g_fruta.sort_values("voc_gas").iloc[0]
                                 voc_med  = g_fruta["voc_gas"].mean()
@@ -752,7 +760,7 @@ else:
                                 cor_ev   = pior["cor"]
                                 
                                 ultima_leitura = g_fruta.iloc[-1]
-                                hora_ultima = ultima_leitura["_time"].strftime("%H:%M")
+                                hora_ultima = ultima_leitura["_time"].strftime("%H:%M:%S")
                                 trend = f"🕒 {hora_ultima}"
 
                                 st.markdown(f"""
