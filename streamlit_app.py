@@ -28,9 +28,9 @@ try:
     INFLUX_BUCKET = st.secrets["INFLUX_BUCKET"]
 except Exception:
     INFLUX_URL = "https://eu-central-1-1.aws.cloud2.influxdata.com"
-    INFLUX_TOKEN = "TEU_TOKEN"
-    INFLUX_ORG = "TUA_ORG"
-    INFLUX_BUCKET = "TEU_BUCKET"
+    INFLUX_TOKEN = "Y5_u5FEICS9mkR2Dl2aPZUsX-lihtneYuuYF5ooHET9ncXDPHBDS2xO6mD-ox1358d_qQUOsvyNWRqT4TtJkzw=="
+    INFLUX_ORG = "a00b549847ff266a"
+    INFLUX_BUCKET = "fruit_telemetry"
 
 # --- 4. ESTADO DA SESSÃO ---
 if 'logado' not in st.session_state:
@@ -79,15 +79,16 @@ def verificar_login_rfid():
         pass 
 
 def fetch_historico_reposicoes(dias=90):
-    """Procura os carimbos de data/hora de todas as tags de Nova Carga passadas"""
+    """Procura os carimbos de data/hora de qualquer tag de Nova Carga passada"""
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+        # Expressão regular "=~ /^nova_carga/" apanha "nova_carga_climaterica" e "nova_carga_nao_climaterica"
         query = f'''
         from(bucket: "{INFLUX_BUCKET}")
           |> range(start: -{dias}d)
           |> filter(fn: (r) => r["_measurement"] == "rfid_operacoes")
           |> filter(fn: (r) => r["_field"] == "acao")
-          |> filter(fn: (r) => r["_value"] == "nova_carga")
+          |> filter(fn: (r) => r["_value"] =~ /^nova_carga/)
         '''
         result = client.query_api().query(query)
         timestamps = []
@@ -106,7 +107,7 @@ def fetch_ultima_reposicao():
           |> range(start: -30d)
           |> filter(fn: (r) => r["_measurement"] == "rfid_operacoes")
           |> filter(fn: (r) => r["_field"] == "acao")
-          |> filter(fn: (r) => r["_value"] == "nova_carga")
+          |> filter(fn: (r) => r["_value"] =~ /^nova_carga/)
           |> last()
         '''
         result = client.query_api().query(query)
@@ -199,7 +200,7 @@ h1,h2,h3,h4 { font-family: var(--sans); }
 .tl-dot.warn   { border-color: var(--warn);   box-shadow: 0 0 8px rgba(255,184,0,0.3); }
 .tl-dot.danger { border-color: var(--danger); box-shadow: 0 0 8px rgba(255,68,85,0.3); }
 .tl-time { font-family: var(--mono); font-size: 0.72rem; color: var(--txt-muted); margin-bottom: 6px; letter-spacing: 1px; }
-.tl-body { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
+.tl-body { background: transparent; padding: 0; }
 .tl-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-family: var(--mono); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid; margin-left: 8px; }
 
 .kpi-row { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
@@ -322,13 +323,10 @@ def processar_decisao(classe, voc):
     
     # FRUTA CLIMATÉRICA
     if any(f in str(classe).lower() for f in ["maca", "apple", "banana"]):
-        # Resistência ALTA (ex: > 17000) = Sem gases = Fresca
         if voc >= t["clim_maduro"]:    
             return "VERDE / FRESCO", "#00E5B4", "PRATELEIRA", "success"
-        # Resistência MÉDIA (ex: entre 13000 e 17000) = Alguns gases = Madura
         elif voc >= t["clim_fresco"]:  
             return "MADURO / ÓTIMO", "#FFB800", "PROMOÇÃO IMEDIATA", "warning"
-        # Resistência BAIXA (ex: < 13000) = Muitos gases = Podre
         else:                          
             return "PODRE / SENESCÊNCIA", "#FF4455", "RETIRAR DE IMEDIATO", "danger"
             
@@ -504,7 +502,6 @@ else:
             temp   = float(latest.get('temp', 0.0))
             hum    = float(latest.get('hum', 0.0))
 
-            # Aplica override forçado pelo Chefe de Loja se existir na sessão
             if fruta.lower() == "desconhecido" and st.session_state.override_desconhecido:
                 fruta = st.session_state.override_desconhecido
 
@@ -525,7 +522,6 @@ else:
                     </div>
                 """, unsafe_allow_html=True)
                 
-                # INTERFACE DE OVERRIDE EXCLUSIVA PARA O CHEFE DE LOJA
                 if latest.get('classe_dominante', 'Desconhecido').lower() == "desconhecido":
                     st.markdown("<br>", unsafe_allow_html=True)
                     if st.session_state.cargo == "Chefe de Loja":
@@ -619,7 +615,6 @@ else:
             df_hist_real = fetch_history_data(dias_map[periodo])
             listagem_reposicoes = fetch_historico_reposicoes(dias_map[periodo])
 
-            # Mapeamento dinâmico de fatias temporais para criação de lotes virtuais
             lotes_disponiveis = ["Todos os Lotes"]
             if listagem_reposicoes:
                 for idx in range(len(listagem_reposicoes)):
@@ -647,7 +642,6 @@ else:
             else:
                 df_periodo = df_hist_real.dropna(subset=['voc_gas', 'classe_dominante']).copy()
                 
-                # Segmentação e filtragem baseada na janela do lote escolhido
                 if lote_filtro != "Todos os Lotes" and listagem_reposicoes:
                     idx_lote = int(lote_filtro.split("#")[1]) - 1
                     data_inicio_lote = listagem_reposicoes[idx_lote]
@@ -748,14 +742,21 @@ else:
                             """, unsafe_allow_html=True)
 
                             for fruta_id, g_fruta in grupo_dia.groupby("classe_dominante"):
-                                # Ordena para mostrar as leituras mais recentes primeiro
                                 g_fruta = g_fruta.sort_values("_time", ascending=False)
                                 
-                                # Cria uma div individual para CADA medição daquela fruta
                                 for idx, row in g_fruta.iterrows():
-                                    hora_local = row["_time"].tz_convert('Europe/Lisbon').strftime('%H:%M:%S')
-                                    cor_ev = row["cor"]
-                                    temp_val = row["temp"] if 'temp' in row else 0.0
+                                    # SEGURANÇA DATETIME
+                                    ts = pd.to_datetime(row["_time"])
+                                    # Formatação garantida para fuso de PT
+                                    hora_local = ts.tz_convert('Europe/Lisbon').strftime('%H:%M:%S') if ts.tzinfo else ts.tz_localize('UTC').tz_convert('Europe/Lisbon').strftime('%H:%M:%S')
+                                    
+                                    # SEGURANÇA VALORES NULOS
+                                    cor_ev = row.get("cor", "#8BA0BC")
+                                    temp_raw = row.get("temp", 0.0)
+                                    temp_val = 0.0 if pd.isna(temp_raw) else float(temp_raw)
+                                    
+                                    voc_raw = row.get("voc_gas", 0.0)
+                                    voc_val = 0.0 if pd.isna(voc_raw) else float(voc_raw) / 1000
 
                                     st.markdown(f"""
                                     <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;position:relative;">
@@ -769,13 +770,13 @@ else:
                                         </div>
                                         
                                         <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-                                            <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{row['estado']}</span>
+                                            <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{row.get('estado', 'Desconhecido')}</span>
                                         </div>
                                         
                                         <div style="display:flex;gap:20px;font-size:0.82rem;color:var(--txt-muted);flex-wrap:wrap;">
-                                            <span>VOC Detetado: <span style="font-family:var(--mono);color:var(--txt);">{row['voc_gas']/1000:.2f} kΩ</span></span>
+                                            <span>VOC Detetado: <span style="font-family:var(--mono);color:var(--txt);">{voc_val:.2f} kΩ</span></span>
                                             <span>Temp: <span style="font-family:var(--mono);color:var(--txt);">{temp_val:.1f} °C</span></span>
-                                            <span>Ação exigida: <strong style="color:{cor_ev};">{row['acao']}</strong></span>
+                                            <span>Ação exigida: <strong style="color:{cor_ev};">{row.get('acao', '-')}</strong></span>
                                         </div>
                                     </div>
                                     """, unsafe_allow_html=True)
