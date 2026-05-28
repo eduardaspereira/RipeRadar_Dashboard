@@ -707,13 +707,13 @@ else:
                                 temp_med = g_fruta["temp"].mean() if 'temp' in g_fruta.columns else 0.0
                                 cor_ev   = pior["cor"]
                                 
-                                # Adicionada a lógica da hora aqui:
+                                # Lógica atualizada: Apenas a hora com a cor do estado atual
                                 ultima_leitura = g_fruta.iloc[-1]
                                 hora_ultima = ultima_leitura["_time"].strftime("%H:%M")
                                 
                                 is_degrading = ultima_leitura["voc_gas"] < g_fruta["voc_gas"].iloc[0]
-                                trend    = f"↘ A degradar (às {hora_ultima})" if is_degrading else f"↗ Estável (às {hora_ultima})"
                                 trend_c  = "#FF4455" if is_degrading else "#00E5B4"
+                                trend = f"🕒 {hora_ultima}"
 
                                 st.markdown(f"""
                                 <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;">
@@ -722,7 +722,7 @@ else:
                                             <span style="font-family:var(--mono);font-size:0.68rem;color:var(--txt-muted);">PRODUTO&nbsp;</span>
                                             <span style="font-family:var(--mono);font-size:0.82rem;color:var(--txt);font-weight:700;text-transform:uppercase;">{formatar_nome(fruta_id)}</span>
                                         </div>
-                                        <span style="font-family:var(--mono);font-size:0.72rem;color:{trend_c};">{trend}</span>
+                                        <span style="font-family:var(--mono);font-weight:700;font-size:0.85rem;color:{trend_c};">{trend}</span>
                                     </div>
                                     <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
                                         <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{pior['estado']}</span>
@@ -799,39 +799,46 @@ else:
             if df_logs.empty:
                 st.info("Sem registos de atividades nos últimos 7 dias.")
             else:
-                dados_tabela = []
+                # Usa a estrutura da timeline com as respetivas cores de destaque para ficar muito mais apelativo
+                st.markdown('<div class="tl-wrap">', unsafe_allow_html=True)
                 for _, row in df_logs.iterrows():
-                    data_hora = row['_time'].strftime("%d/%m/%Y %H:%M:%S")
+                    data_str = row['_time'].strftime("%d/%m/%Y")
+                    hora_str = row['_time'].strftime("%H:%M:%S")
                     
                     if row.get('_measurement') == 'rfid_login':
                         acao = "🔐 Login de Utilizador"
                         detalhe = str(row.get('user_id', '')).title()
+                        cor = "var(--accent2)" # Azul
+                        dot_class = ""
                     else:
                         operacao_raw = row.get('acao', '')
                         if operacao_raw == "carga_climaterica":
                             acao = "📦 Registo de Nova Carga"
                             detalhe = "Frutos Climatéricos"
+                            cor = "var(--warn)" # Laranja/Amarelo
+                            dot_class = "warn"
                         elif operacao_raw == "carga_nao_climaterica":
                             acao = "📦 Registo de Nova Carga"
                             detalhe = "Frutos Não Climatéricos"
+                            cor = "var(--success)" # Verde
+                            dot_class = ""
                         else:
                             acao = "⚙️ Operação do Sistema"
                             detalhe = operacao_raw
+                            cor = "var(--txt-muted)" # Cinzento
+                            dot_class = ""
                             
-                    dados_tabela.append({
-                        "Data / Hora": data_hora,
-                        "Tipo de Evento": acao,
-                        "Detalhe / Utilizador": detalhe,
-                        "Terminal": str(row.get('local', 'Desconhecido')).upper().replace('_', ' ')
-                    })
-                
-                df_clean = pd.DataFrame(dados_tabela)
-                st.dataframe(
-                    df_clean, 
-                    use_container_width=True, 
-                    hide_index=True,
-                    height=400
-                )
+                    st.markdown(f"""
+                    <div class="tl-item">
+                        <div class="tl-dot {dot_class}" style="border-color:{cor};"></div>
+                        <div class="tl-time">📅 {data_str} <span style="margin: 0 6px;">•</span> 🕒 {hora_str}</div>
+                        <div class="tl-body" style="padding: 12px 16px;">
+                            <div style="font-weight:700; color:{cor}; margin-bottom:4px; font-size: 0.95rem;">{acao}</div>
+                            <div style="font-size:0.85rem; color:var(--txt); font-family:var(--mono);">{detalhe}</div>
+                        </div>
+                    </div>
+                    """, unsafe_allow_html=True)
+                st.markdown('</div>', unsafe_allow_html=True)
 
     # ── AUTO REFRESH DASHBOARD ─────────────────────────────────
     if auto_refresh:
