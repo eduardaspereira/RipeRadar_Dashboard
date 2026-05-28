@@ -97,18 +97,25 @@ def fetch_ultima_reposicao():
         return None
 
 def fetch_logs_operadores():
-    """Vai buscar os últimos registos brutos de login e operações RFID"""
+    """Vai buscar os últimos registos brutos de login e operações RFID misturados por tempo"""
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+        # O comando group() é essencial aqui para juntar as duas medições numa tabela única
         query = f'''
         from(bucket: "{INFLUX_BUCKET}")
           |> range(start: -7d)
           |> filter(fn: (r) => r["_measurement"] == "rfid_login" or r["_measurement"] == "rfid_operacoes")
+          |> keep(columns: ["_time", "_measurement", "_value", "_field"])
+          |> group() 
           |> sort(columns: ["_time"], desc: true)
         '''
         df = client.query_api().query_data_frame(query)
-        if isinstance(df, list): df = pd.concat(df)
+        if isinstance(df, list): 
+            df = pd.concat(df, ignore_index=True)
+            
         if isinstance(df, pd.DataFrame) and not df.empty:
+            # Forçamos a ordenação no pandas para garantir que o mais recente está no topo
+            df = df.sort_values('_time', ascending=False)
             df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
             return df
         return pd.DataFrame()
@@ -808,13 +815,13 @@ else:
                         tag = "ACESSO"
                         color = "var(--accent2)" # Azul
                     elif medida == 'rfid_operacoes':
-                        if valor == "carga_climaterica":
+                        if "carga_climaterica" in valor:
                             acao = "Registo de Nova Carga"
                             detalhe = "Frutos Climatéricos"
                             icon = "📦"
                             tag = "OPERAÇÃO"
                             color = "var(--warn)" # Amarelo/Laranja
-                        elif valor == "carga_nao_climaterica":
+                        elif "carga_nao_climaterica" in valor:
                             acao = "Registo de Nova Carga"
                             detalhe = "Frutos Não Climatéricos"
                             icon = "📦"
