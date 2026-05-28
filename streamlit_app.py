@@ -747,7 +747,7 @@ else:
                     
                     st.markdown("""
                         <p style='font-size:0.85rem;color:var(--txt-muted);margin-bottom:20px;'>
-                        As leituras são agrupadas por <strong>dia</strong> e por estado (<strong>fruto detetado</strong>).<br>
+                        As leituras são listadas individualmente e agrupadas por <strong>dia</strong>.<br>
                         <em>Nota: Os dias em que não ocorreram alertas não são exibidos se o filtro superior os excluir.</em>
                         </p>
                     """, unsafe_allow_html=True)
@@ -757,11 +757,13 @@ else:
                     else:
                         df_eventos["dia_str"]  = df_eventos["_time"].apply(lambda x: f"{x.day} de {meses_pt[x.month]} de {x.year}")
                         df_eventos["dia_date"] = df_eventos["_time"].dt.date
-                        dias_unicos = df_eventos["dia_date"].drop_duplicates().sort_values(ascending=False).head(20)
+                        # Ordena os dias do mais recente para o mais antigo
+                        dias_unicos = df_eventos["dia_date"].drop_duplicates().sort_values(ascending=False)
 
                         st.markdown('<div class="tl-wrap">', unsafe_allow_html=True)
                         for dia_date in dias_unicos:
-                            grupo_dia = df_eventos[df_eventos["dia_date"] == dia_date]
+                            # Filtra as leituras para este dia e ordena da mais recente para a mais antiga
+                            grupo_dia = df_eventos[df_eventos["dia_date"] == dia_date].sort_values(by="_time", ascending=False)
                             dia_label = grupo_dia.iloc[0]["dia_str"]
                             n_crit_dia = len(grupo_dia[grupo_dia["severidade"]=="danger"])
                             dot_cls    = "danger" if n_crit_dia > 0 else "success"
@@ -779,25 +781,16 @@ else:
                                     </div>
                             """, unsafe_allow_html=True)
 
-                            # Agrupar por fruto e ordenar pelo evento mais recente de cada fruto
-                            grupos_ordenados = []
-                            for fruta_id, g_fruta in grupo_dia.groupby("classe_dominante"):
-                                grupos_ordenados.append((fruta_id, g_fruta, g_fruta["_time"].max()))
-                            
-                            # Ordena de forma descendente (mais recentes primeiro)
-                            grupos_ordenados.sort(key=lambda x: x[2], reverse=True)
-
-                            for fruta_id, g_fruta, _ in grupos_ordenados:
-                                g_fruta  = g_fruta.sort_values("_time")
-                                pior     = g_fruta.sort_values("voc_gas").iloc[0]
-                                voc_med  = g_fruta["voc_gas"].mean()
-                                temp_med = g_fruta["temp"].mean() if 'temp' in g_fruta.columns else 0.0
-                                cor_ev   = pior["cor"]
+                            # --- NOVA LÓGICA: Itera sobre todas as linhas do dia em vez de agrupar por fruto ---
+                            for _, row in grupo_dia.iterrows():
+                                hora = row["_time"].strftime("%H:%M:%S")
+                                fruta_id = row["classe_dominante"]
+                                estado_lido = row["estado"]
+                                acao_lida = row["acao"]
+                                cor_ev = row["cor"]
+                                voc_lido = row["voc_gas"]
+                                temp_lida = row.get("temp", 0.0)
                                 
-                                ultima_leitura = g_fruta.iloc[-1]
-                                hora_ultima = ultima_leitura["_time"].strftime("%H:%M:%S")
-                                trend = f"{hora_ultima}"
-
                                 st.markdown(f"""
                                 <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;">
                                     <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
@@ -805,15 +798,15 @@ else:
                                             <span style="font-family:var(--mono);font-size:0.68rem;color:var(--txt-muted);">PRODUTO&nbsp;</span>
                                             <span style="font-family:var(--mono);font-size:0.82rem;color:var(--txt);font-weight:700;text-transform:uppercase;">{formatar_nome(fruta_id)}</span>
                                         </div>
-                                        <span style="font-family:var(--mono);font-weight:700;font-size:0.85rem;color:var(--txt);">{trend}</span>
+                                        <span style="font-family:var(--mono);font-weight:700;font-size:0.85rem;color:var(--txt);">{hora}</span>
                                     </div>
                                     <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-                                        <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{pior['estado']}</span>
+                                        <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{estado_lido}</span>
                                     </div>
                                     <div style="display:flex;gap:20px;font-size:0.82rem;color:var(--txt-muted);flex-wrap:wrap;">
-                                        <span>VOC médio diário: <span style="font-family:var(--mono);color:var(--txt);">{voc_med/1000:.2f} kΩ</span></span>
-                                        <span>Temp média: <span style="font-family:var(--mono);color:var(--txt);">{temp_med:.1f} °C</span></span>
-                                        <span>Ação exigida: <strong style="color:{cor_ev};">{pior['acao']}</strong></span>
+                                        <span>VOC: <span style="font-family:var(--mono);color:var(--txt);">{voc_lido/1000:.2f} kΩ</span></span>
+                                        <span>Temp: <span style="font-family:var(--mono);color:var(--txt);">{temp_lida:.1f} °C</span></span>
+                                        <span>Ação: <strong style="color:{cor_ev};">{acao_lida}</strong></span>
                                     </div>
                                 </div>
                                 """, unsafe_allow_html=True)
