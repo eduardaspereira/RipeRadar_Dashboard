@@ -258,15 +258,15 @@ div[data-baseweb="select"] > div { background: var(--surface) !important; border
 # ══════════════════════════════════════════════════════════════
 def carregar_calibracao():
     limites_predefinidos = {
-        "clim_maduro": 17000, "clim_podre": 13000,
-        "nclim_risco": 16000, "nclim_podre": 13000
+        "clim_limiar": 28500,
+        "nclim_limiar": 28500
     }
     
     if os.path.exists("calibracao.json"):
         try:
             with open("calibracao.json", "r") as f:
                 dados = json.load(f)
-                if "clim_podre" in dados:
+                if "clim_limiar" in dados:
                     return dados
         except Exception:
             pass
@@ -280,74 +280,70 @@ def guardar_calibracao(limites):
 if 'thresholds' not in st.session_state:
     st.session_state.thresholds = carregar_calibracao()
 else:
-    if "clim_podre" not in st.session_state.thresholds:
+    if "clim_limiar" not in st.session_state.thresholds:
         st.session_state.thresholds = carregar_calibracao()
 
 thresholds = st.session_state.thresholds
 
 def formatar_nome(raw_name):
-    """Limpa nomes como 'Banana_podre' para 'Banana Podre'"""
+    """Limpa nomes para o display visual"""
     if raw_name == "Todos": return "Todos os Produtos"
     return str(raw_name).replace('_', ' ').title()
 
 def obter_cor_estado(raw_name):
     nome_min = str(raw_name).lower()
-    if any(x in nome_min for x in ["fresc", "firm", "verd"]): return "#00E5B4"
-    if any(x in nome_min for x in ["madur", "risco", "otim"]): return "#FFB800"
-    if any(x in nome_min for x in ["podr", "degrad", "senesc"]): return "#FF4455"
+    if any(x in nome_min for x in ["fresc", "verd"]): return "#00E5B4"
+    if any(x in nome_min for x in ["podr", "senesc"]): return "#FF4455"
     return "#8BA0BC"
 
 meses_pt = {1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"}
 
 # ── FUNÇÕES DE LATE FUSION LOCAL (PARA OS SLIDERS FUNCIONAREM) ──
 def calcular_late_fusion_local(row_or_dict):
-    """Refaz a Late Fusion baseando-se nos valores brutos e na Calibração atual do Dashboard"""
+    """Refaz a Late Fusion baseando-se nos valores brutos e na Calibração atual do Dashboard. Apenas suporta Fruta Climatérica / Não Climatérica em estado Verde ou Senescência."""
     label = str(row_or_dict.get('label_camara', row_or_dict.get('classe_dominante', 'desconhecido'))).lower()
     conf = float(row_or_dict.get('confianca', 1.0))
     voc = float(row_or_dict.get('voc_gas', 0.0))
     
     fruto = "desconhecido"
-    for f in ["banana", "maca", "laranja"]:
-        if f in label:
-            fruto = f
-            break
+    if any(x in label for x in ["banana", "maca", "macã", "apple"]):
+        fruto = "fruta_climatérica"
+    elif "laranja" in label:
+        fruto = "fruta_não_climatérica"
             
     t = st.session_state.thresholds
-    clim_maduro = t.get("clim_maduro", 17000)
-    clim_podre  = t.get("clim_podre", 13000)
-    nclim_risco = t.get("nclim_risco", 16000)
-    nclim_podre = t.get("nclim_podre", 13000)
+    clim_limiar = t.get("clim_limiar", 28500)
+    nclim_limiar = t.get("nclim_limiar", 28500)
     
     nicla_state = "desconhecido"
-    if fruto in ["banana", "maca"]:
-        if voc > clim_maduro: nicla_state = "fresco"
-        elif voc >= clim_podre: nicla_state = "maduro"
-        else: nicla_state = "podre"
-    elif fruto == "laranja":
-        if voc > nclim_risco: nicla_state = "firme"
-        elif voc >= nclim_podre: nicla_state = "risco"
-        else: nicla_state = "degradada"
+    if fruto == "fruta_climatérica":
+        if voc > clim_limiar: nicla_state = "verde"
+        else: nicla_state = "senescência"
+    elif fruto == "fruta_não_climatérica":
+        if voc > nclim_limiar: nicla_state = "verde"
+        else: nicla_state = "senescência"
         
+    classe_final = f"{fruto}_{nicla_state}" if fruto != "desconhecido" else "desconhecido"
+
     if conf < 0.60 and fruto != "desconhecido":
-        return f"{fruto}_{nicla_state}", "VOC OVERRIDE ⚡"
+        return classe_final, "VOC OVERRIDE ⚡"
     else:
-        return label, "VISÃO + VOC 👁️"
+        return classe_final, "VISÃO + VOC 👁️"
 
 def processar_decisao(classe_fused):
     """
-    Retorna os textos e cores FINAIS da interface, 
-    baseando-se TOTALMENTE na string que já foi alvo de fusão.
-    Isso impede contradições!
+    Retorna os textos e cores FINAIS da interface baseando-se no binómio verde/senescência.
     """
     c = str(classe_fused).lower()
-    is_clim = any(f in c for f in ["maca", "apple", "banana"])
+    if "desconhecido" in c:
+        return ("DESCONHECIDO", "#8BA0BC", "AGUARDAR DADOS", "warning")
+        
+    is_clim = "não_climatérica" not in c
     
-    if any(x in c for x in ["fresc", "firm", "verd"]):
-        return ("VERDE / FRESCO" if is_clim else "FIRME / BOA", "#00E5B4", "PRATELEIRA" if is_clim else "CONFORME", "success")
-    elif any(x in c for x in ["madur", "risco", "otim"]):
-        return ("MADURO / ÓTIMO" if is_clim else "RISCO DE DEGRADAÇÃO", "#FFB800", "PROMOÇÃO IMEDIATA" if is_clim else "VIGILÂNCIA REFORÇADA", "warning")
-    elif any(x in c for x in ["podr", "degrad", "senesc"]):
-        return ("PODRE / SENESCÊNCIA" if is_clim else "DEGRADADA", "#FF4455", "RETIRAR DE IMEDIATO" if is_clim else "REJEITAR LOTE", "danger")
+    if "verde" in c or "fresc" in c:
+        return ("VERDE / FRESCA", "#00E5B4", "PRATELEIRA", "success")
+    elif "senescência" in c or "podre" in c:
+        return ("SENESCÊNCIA / PODRE", "#FF4455", "RETIRAR DE IMEDIATO" if is_clim else "REJEITAR LOTE", "danger")
     else:
         return ("DESCONHECIDO", "#8BA0BC", "AGUARDAR DADOS", "warning")
 
@@ -371,10 +367,10 @@ def fetch_live_data():
         return pd.DataFrame()
 
 @st.cache_data(ttl=300)
-def fetch_history_data(dias):
+def fetch_history_data(time_range):
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-        query  = (f'from(bucket: "{INFLUX_BUCKET}") |> range(start: -{dias}d)'
+        query  = (f'from(bucket: "{INFLUX_BUCKET}") |> range(start: -{time_range})'
                   f' |> filter(fn: (r) => r["_measurement"] == "mqtt_consumer")'
                   f' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")')
         df = client.query_api().query_data_frame(query)
@@ -510,7 +506,7 @@ else:
     if is_live:
         chip_html = '<span class="live-chip"><span class="live-dot"></span>LIVE</span>'
     else:
-        chip_html = '<span class="offline-chip"><span class="offline-dot"></span>HISTORIC (NO DATA)</span>'
+        chip_html = '<span class="offline-chip"><span class="offline-dot"></span>OFFLINE</span>'
 
     ultima_rep = fetch_ultima_reposicao()
     lote_html = ""
@@ -527,7 +523,7 @@ else:
             minutos = int((agora_utc - ultima_rep).total_seconds() / 60)
             tempo_str = f"Há {minutos} min"
             
-        lote_html = f"<div style='background:rgba(0,144,255,0.1); border:1px solid rgba(0,144,255,0.3); color:#0090FF; padding:4px 12px; border-radius:999px; font-family:var(--mono); font-size:0.7rem; font-weight:700; letter-spacing:0.5px;'>📦 LOTE RENOVADO: {tempo_str}</div>"
+        lote_html = f"<div style='background:rgba(0,144,255,0.1); border:1px solid rgba(0,144,255,0.3); color:#0090FF; padding:4px 12px; border-radius:999px; font-family:var(--mono); font-size:0.7rem; font-weight:700; letter-spacing:0.5px;'> Fruta Revista {tempo_str}</div>"
 
     st.markdown(f"""
         <div class="page-header" style="align-items: center;">
@@ -553,10 +549,10 @@ else:
             temp   = float(latest.get('temp', 0.0))
             hum    = float(latest.get('hum', 0.0))
 
-            # 1. Faz a fusão calculando localmente (para a calibração ser dinâmica)
+            # 1. Faz a fusão calculando localmente
             decisao_final, fusion_mode = calcular_late_fusion_local(latest)
             
-            # 2. Constrói o texto e cor grandes baseando-se RIGOROSAMENTE na decisão já fundida
+            # 2. Constrói o texto e cor grandes
             estado, cor_hex, acao, sev = processar_decisao(decisao_final)
             
             sev_bg  = {"success":"rgba(0,229,180,0.06)", "warning":"rgba(255,184,0,0.06)", "danger":"rgba(255,68,85,0.06)"}
@@ -580,23 +576,21 @@ else:
                 """, unsafe_allow_html=True)
 
             with col_g:
-                is_clim = any(f in decisao_final.lower() for f in ["maca","banana"])
-                lim_podre = thresholds.get("clim_podre", 13000) if is_clim else thresholds.get("nclim_podre", 13000)
-                lim_maduro = thresholds.get("clim_maduro", 17000) if is_clim else thresholds.get("nclim_risco", 16000)
+                is_clim = "não_climatérica" not in decisao_final.lower()
+                limiar_atual = thresholds.get("clim_limiar", 28500) if is_clim else thresholds.get("nclim_limiar", 28500)
 
-                # Gráfico ajustado: Menor Resistência (Esq) = Mais Gases = Perigo (Vermelho)
+                # Gráfico ajustado (19kohm a 38kohm), verde/senescência apenas
                 fig_gauge = go.Figure(go.Indicator(
                     mode="gauge+number", value=voc,
                     number={'suffix':" Ω",'font':{'size':28,'color':'#E8EEF8','family':'Space Mono'}},
                     title={'text':"RESISTÊNCIA VOC (Ω)",'font':{'size':11,'color':'#5A7090','family':'DM Sans'}},
                     gauge={
-                        'axis':{'range':[None,25000],'tickwidth':1,'tickcolor':"#1E2D45",'tickfont':{'color':'#5A7090','size':10}},
+                        'axis':{'range':[19000, 38000],'tickwidth':1,'tickcolor':"#1E2D45",'tickfont':{'color':'#5A7090','size':10}},
                         'bar':{'color':cor_hex,'thickness':0.22},
                         'bgcolor':"#0E1420",'borderwidth':1,'bordercolor':"#1E2D45",
                         'steps':[
-                            {'range':[0, lim_podre],          'color':"rgba(255,68,85,0.15)"},  # Perigo
-                            {'range':[lim_podre, lim_maduro], 'color':"rgba(255,184,0,0.15)"},  # Atenção
-                            {'range':[lim_maduro, 25000],     'color':"rgba(0,229,180,0.15)"}   # Fresco
+                            {'range':[19000, limiar_atual],  'color':"rgba(255,68,85,0.15)"},  # Senescência (Baixa resistência = mais gás)
+                            {'range':[limiar_atual, 38000],  'color':"rgba(0,229,180,0.15)"}   # Verde
                         ],
                         'threshold':{'line':{'color':cor_hex,'width':2},'thickness':0.8,'value':voc}
                     }
@@ -653,8 +647,8 @@ else:
             col_f1, col_f2, col_f3 = st.columns([1, 1, 2])
             
             with col_f1:
-                periodo = st.selectbox("Período", ["Últimos 7 dias","Últimos 30 dias","Últimos 90 dias"], index=1)
-            dias_map = {"Últimos 7 dias":7, "Últimos 30 dias":30, "Últimos 90 dias":90}
+                periodo = st.selectbox("Período", ["Últimas 12 horas", "Últimas 24 horas", "Últimos 7 dias", "Últimos 30 dias", "Últimos 90 dias"], index=2)
+            dias_map = {"Últimas 12 horas":"12h", "Últimas 24 horas":"24h", "Últimos 7 dias":"7d", "Últimos 30 dias":"30d", "Últimos 90 dias":"90d"}
             
             # Fetch data and apply local fusion so history obeys the calibration sliders!
             df_hist_real = fetch_history_data(dias_map[periodo])
@@ -673,9 +667,9 @@ else:
             with col_f3:
                 sev_filtro = st.multiselect(
                     "Mostrar eventos",
-                    ["success","warning","danger"],
-                    default=["warning","danger"],
-                    format_func=lambda x: {"success":"✅ Normais","warning":"⚠️ Atenção","danger":"🔴 Críticos"}[x]
+                    ["success","danger"],
+                    default=["danger"],
+                    format_func=lambda x: {"success":"✅ Normais", "danger":"🔴 Críticos"}[x]
                 )
             
             if df_hist_real.empty:
@@ -701,16 +695,14 @@ else:
                     st.markdown("<br>", unsafe_allow_html=True)
                     total      = len(df_periodo)
                     n_criticos = len(df_periodo[df_periodo["severidade"]=="danger"])
-                    n_atencao  = len(df_periodo[df_periodo["severidade"]=="warning"])
                     n_ok       = len(df_periodo[df_periodo["severidade"]=="success"])
                     pct_ok     = round(n_ok / total * 100, 1) if total > 0 else 0
                     
                     st.markdown(f"""
                     <div class="kpi-row">
                         <div class="kpi-card"><div class="kpi-num" style="color:#E8EEF8;">{total}</div><div class="kpi-lbl">Leituras Totais</div></div>
-                        <div class="kpi-card"><div class="kpi-num" style="color:#FF4455;">{n_criticos}</div><div class="kpi-lbl">Alertas Críticos</div></div>
-                        <div class="kpi-card"><div class="kpi-num" style="color:#FFB800;">{n_atencao}</div><div class="kpi-lbl">Em Atenção</div></div>
-                        <div class="kpi-card"><div class="kpi-num" style="color:#00E5B4;">{pct_ok}%</div><div class="kpi-lbl">Taxa Conformidade</div></div>
+                        <div class="kpi-card"><div class="kpi-num" style="color:#FF4455;">{n_criticos}</div><div class="kpi-lbl">Alertas Críticos (Senescência)</div></div>
+                        <div class="kpi-card"><div class="kpi-num" style="color:#00E5B4;">{pct_ok}%</div><div class="kpi-lbl">Taxa Conformidade (Verde)</div></div>
                     </div>
                     """, unsafe_allow_html=True)
 
@@ -730,8 +722,8 @@ else:
                             hovertemplate=f'<b>%{{x}}</b><br>{formatar_nome(f_nome)}: %{{y:.0f}} Ω<extra></extra>'
                         ))
 
-                    fig_voc.add_hline(y=thresholds.get("clim_maduro", 17000), line_dash="dot", line_color="rgba(0,229,180,0.35)", annotation_text="Limiar Verde/Maduro", annotation_font_color="#00E5B4", annotation_font_size=10)
-                    fig_voc.add_hline(y=thresholds.get("clim_podre", 13000), line_dash="dot", line_color="rgba(255,68,85,0.35)", annotation_text="Limiar Maduro/Podre", annotation_font_color="#FF4455", annotation_font_size=10)
+                    fig_voc.add_hline(y=thresholds.get("clim_limiar", 28500), line_dash="dot", line_color="rgba(0,229,180,0.35)", annotation_text="Limiar Climatérica", annotation_font_color="#00E5B4", annotation_font_size=10)
+                    fig_voc.add_hline(y=thresholds.get("nclim_limiar", 28500), line_dash="dot", line_color="rgba(0,229,180,0.35)", annotation_text="Limiar Não-Climatérica", annotation_font_color="#00E5B4", annotation_font_size=10)
 
                     layout_voc = {**PLOT_LAYOUT, "height": 340, "yaxis_title": "Resistência (Ω)"}
                     fig_voc.update_layout(**layout_voc)
@@ -749,7 +741,7 @@ else:
                     """, unsafe_allow_html=True)
 
                     if df_eventos.empty:
-                        st.info("✅ Sem eventos de risco registados para os filtros selecionados nos últimos dias.")
+                        st.info("✅ Sem eventos de risco registados para os filtros selecionados.")
                     else:
                         df_eventos["dia_str"]  = df_eventos["_time"].apply(lambda x: f"{x.day} de {meses_pt[x.month]} de {x.year}")
                         df_eventos["dia_date"] = df_eventos["_time"].dt.date
@@ -760,15 +752,15 @@ else:
                             grupo_dia = df_eventos[df_eventos["dia_date"] == dia_date]
                             dia_label = grupo_dia.iloc[0]["dia_str"]
                             n_crit_dia = len(grupo_dia[grupo_dia["severidade"]=="danger"])
-                            dot_cls    = "danger" if n_crit_dia > 0 else "warn"
-                            cor_dia    = "#FF4455" if n_crit_dia > 0 else "#FFB800"
+                            dot_cls    = "danger" if n_crit_dia > 0 else "success"
+                            cor_dia    = "#FF4455" if n_crit_dia > 0 else "#00E5B4"
 
                             badge_html = f"<span class='tl-badge' style='color:#FF4455;border-color:rgba(255,68,85,0.3);'>⬤ {n_crit_dia} críticos</span>" if n_crit_dia > 0 else ""
 
                             st.markdown(f"""
                             <div class="tl-item">
                                 <div class="tl-dot {dot_cls}"></div>
-                                <div class="tl-time">📅 {dia_label.upper()}</div>
+                                <div class="tl-time">{dia_label.upper()}</div>
                                 <div class="tl-body">
                                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
                                         <span style="font-weight:700;color:{cor_dia};">{len(grupo_dia)} leituras destacadas</span>{badge_html}
@@ -792,7 +784,7 @@ else:
                                 
                                 ultima_leitura = g_fruta.iloc[-1]
                                 hora_ultima = ultima_leitura["_time"].strftime("%H:%M:%S")
-                                trend = f"🕒 {hora_ultima}"
+                                trend = f"{hora_ultima}"
 
                                 st.markdown(f"""
                                 <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;">
@@ -829,19 +821,18 @@ else:
             """, unsafe_allow_html=True)
             col_a, col_b = st.columns(2)
             with col_a:
-                st.markdown("<div class='calib-group-title'>🍌 Fenologia Climatérica (Banana / Maçã)</div>", unsafe_allow_html=True)
-                clim_m = st.slider("Limiar Verde / Maduro (Ω)", 15000, 20000, thresholds.get("clim_maduro", 17000))
-                clim_p = st.slider("Limiar Maduro / Podre (Ω)", 10000, 15000, thresholds.get("clim_podre", 13000))
+                st.markdown("<div class='calib-group-title'>🍌 Fruta Climatérica (Banana / Maçã)</div>", unsafe_allow_html=True)
+                clim_limiar = st.slider("Limiar Verde / Senescência (Ω)", 19000, 38000, thresholds.get("clim_limiar", 28500))
             with col_b:
-                st.markdown("<div class='calib-group-title'>🍊 Fenologia Não-Climatérica (Laranja)</div>", unsafe_allow_html=True)
-                nclim_r = st.slider("Limiar Firme / Risco (Ω)", 14000, 18000, thresholds.get("nclim_risco", 16000))
-                nclim_p = st.slider("Limiar Risco / Podre (Ω)", 10000, 14000, thresholds.get("nclim_podre", 13000))
+                st.markdown("<div class='calib-group-title'>🍊 Fruta Não-Climatérica (Laranja)</div>", unsafe_allow_html=True)
+                nclim_limiar = st.slider("Limiar Fresca / Senescência (Ω)", 19000, 38000, thresholds.get("nclim_limiar", 28500))
+            
             st.markdown("<br>", unsafe_allow_html=True)
             submitted = st.form_submit_button("Aplicar Parâmetros →", use_container_width=True, type="primary")
             if submitted:
                 novos_limites = {
-                    "clim_maduro": clim_m, "clim_podre": clim_p,
-                    "nclim_risco": nclim_r, "nclim_podre": nclim_p
+                    "clim_limiar": clim_limiar,
+                    "nclim_limiar": nclim_limiar
                 }
                 st.session_state.thresholds = novos_limites
                 guardar_calibracao(novos_limites)
@@ -892,15 +883,15 @@ else:
                         color = "var(--accent2)" # Azul
                     elif medida == 'rfid_operacoes':
                         if "carga_climaterica" in valor:
-                            acao = "Registo de Nova Carga"
+                            acao = "Fruta revista"
                             detalhe = "Frutos Climatéricos"
-                            icon = "📦"
+                            icon = "🍏"
                             tag = "OPERAÇÃO"
                             color = "var(--warn)" # Amarelo/Laranja
                         elif "carga_nao_climaterica" in valor:
-                            acao = "Registo de Nova Carga"
+                            acao = "Fruta revista"
                             detalhe = "Frutos Não Climatéricos"
-                            icon = "📦"
+                            icon = "🍊"
                             tag = "OPERAÇÃO"
                             color = "var(--success)" # Verde
                         else:
