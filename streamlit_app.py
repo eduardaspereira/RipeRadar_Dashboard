@@ -17,131 +17,131 @@ st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide", i
 
 def injetar_css():
     st.markdown("""
-    <style>
-    @import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Space+Mono:wght@400;700&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600;9..40,700&display=swap');
 
-    :root {
-        --bg:        #080C14;
-        --surface:   #0E1420;
-        --surface2:  #141C2E;
-        --border:    #1E2D45;
-        --border-lit:#2A3F5F;
-        --accent:    #00E5B4;
-        --accent2:   #0090FF;
-        --warn:      #FFB800;
-        --danger:    #FF4455;
-        --success:   #00E5B4;
-        --txt:       #E8EEF8;
-        --txt-muted: #5A7090;
-        --txt-sub:   #8BA0BC;
-        --mono: 'Space Mono', monospace;
-        --sans: 'DM Sans', sans-serif;
-    }
+:root {
+    --bg:        #080C14;
+    --surface:   #0E1420;
+    --surface2:  #141C2E;
+    --border:    #1E2D45;
+    --border-lit:#2A3F5F;
+    --accent:    #00E5B4;
+    --accent2:   #0090FF;
+    --warn:      #FFB800;
+    --danger:    #FF4455;
+    --success:   #00E5B4;
+    --txt:       #E8EEF8;
+    --txt-muted: #5A7090;
+    --txt-sub:   #8BA0BC;
+    --mono: 'Space Mono', monospace;
+    --sans: 'DM Sans', sans-serif;
+}
 
-    .stApp { background-color: var(--bg); color: var(--txt); font-family: var(--sans); }
-    .stApp::before {
-        content: ''; position: fixed; inset: 0;
-        background-image: linear-gradient(rgba(0,229,180,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,180,0.015) 1px, transparent 1px);
-        background-size: 40px 40px; pointer-events: none; z-index: 0;
-    }
-    #MainMenu, footer { visibility: hidden; }
-    header { background: transparent !important; }
-    [data-testid="stHeaderActionElements"] { display: none !important; }
-    h1,h2,h3,h4 { font-family: var(--sans); }
+.stApp { background-color: var(--bg); color: var(--txt); font-family: var(--sans); }
+.stApp::before {
+    content: ''; position: fixed; inset: 0;
+    background-image: linear-gradient(rgba(0,229,180,0.015) 1px, transparent 1px), linear-gradient(90deg, rgba(0,229,180,0.015) 1px, transparent 1px);
+    background-size: 40px 40px; pointer-events: none; z-index: 0;
+}
+#MainMenu, footer { visibility: hidden; }
+header { background: transparent !important; }
+[data-testid="stHeaderActionElements"] { display: none !important; }
+h1,h2,h3,h4 { font-family: var(--sans); }
 
-    [data-testid="stSidebar"] { background: var(--surface) !important; border-right: 1px solid var(--border) !important; }
-    [data-testid="stSidebar"] > div { padding-top: 0 !important; }
+[data-testid="stSidebar"] { background: var(--surface) !important; border-right: 1px solid var(--border) !important; }
+[data-testid="stSidebar"] > div { padding-top: 0 !important; }
 
-    .metric-card {
-        background: var(--surface); border: 1px solid var(--border);
-        border-radius: 12px; padding: 20px 22px; position: relative; overflow: hidden; transition: border-color 0.2s;
-    }
-    .metric-card::after {
-        content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
-        background: linear-gradient(90deg, var(--accent2), var(--accent)); opacity: 0.6;
-    }
-    .metric-card:hover { border-color: var(--border-lit); }
-    .metric-label { font-family: var(--mono); font-size: 0.68rem; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
-    .metric-value { font-family: var(--mono); font-size: 2rem; font-weight: 700; color: var(--txt); line-height: 1; }
-    .metric-unit  { font-family: var(--sans); font-size: 0.85rem; color: var(--txt-muted); margin-left: 4px; font-weight: 400; }
-    .metric-dot   { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 6px; box-shadow: 0 0 6px var(--accent); animation: blink 2s ease-in-out infinite; }
-    @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
+.metric-card {
+    background: var(--surface); border: 1px solid var(--border);
+    border-radius: 12px; padding: 20px 22px; position: relative; overflow: hidden; transition: border-color 0.2s;
+}
+.metric-card::after {
+    content: ''; position: absolute; top: 0; left: 0; right: 0; height: 2px;
+    background: linear-gradient(90deg, var(--accent2), var(--accent)); opacity: 0.6;
+}
+.metric-card:hover { border-color: var(--border-lit); }
+.metric-label { font-family: var(--mono); font-size: 0.68rem; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
+.metric-value { font-family: var(--mono); font-size: 2rem; font-weight: 700; color: var(--txt); line-height: 1; }
+.metric-unit  { font-family: var(--sans); font-size: 0.85rem; color: var(--txt-muted); margin-left: 4px; font-weight: 400; }
+.metric-dot   { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 6px; box-shadow: 0 0 6px var(--accent); animation: blink 2s ease-in-out infinite; }
+@keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
 
-    .status-banner {
-        border-radius: 14px; padding: 28px 32px; border: 1px solid var(--border); background: var(--surface2); position: relative; overflow: hidden;
-    }
-    .status-banner::before {
-        content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at top left, rgba(0,229,180,0.06) 0%, transparent 60%); pointer-events: none;
-    }
-    .status-accent-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 14px 0 0 14px; }
-    .status-label  { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; color: var(--txt-muted); margin-bottom: 12px; }
-    .status-target { font-size: 0.95rem; color: var(--txt-sub); margin-bottom: 16px; font-weight: 500; }
-    .status-main   { font-family: var(--mono); font-size: 2.4rem; font-weight: 700; line-height: 1; margin-bottom: 16px; }
-    .status-action { display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 999px; font-family: var(--mono); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid; }
+.status-banner {
+    border-radius: 14px; padding: 28px 32px; border: 1px solid var(--border); background: var(--surface2); position: relative; overflow: hidden;
+}
+.status-banner::before {
+    content: ''; position: absolute; inset: 0; background: radial-gradient(ellipse at top left, rgba(0,229,180,0.06) 0%, transparent 60%); pointer-events: none;
+}
+.status-accent-bar { position: absolute; left: 0; top: 0; bottom: 0; width: 4px; border-radius: 14px 0 0 14px; }
+.status-label  { font-family: var(--mono); font-size: 0.7rem; text-transform: uppercase; letter-spacing: 2px; color: var(--txt-muted); margin-bottom: 12px; }
+.status-target { font-size: 0.95rem; color: var(--txt-sub); margin-bottom: 16px; font-weight: 500; }
+.status-main   { font-family: var(--mono); font-size: 2.4rem; font-weight: 700; line-height: 1; margin-bottom: 16px; }
+.status-action { display: inline-flex; align-items: center; gap: 8px; padding: 8px 18px; border-radius: 999px; font-family: var(--mono); font-size: 0.78rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid; }
 
-    .section-header { display: flex; align-items: center; gap: 12px; margin: 28px 0 16px; }
-    .section-header h3 { font-size: 1rem; font-weight: 600; color: var(--txt); margin: 0; letter-spacing: 0.3px; }
-    .section-divider { flex: 1; height: 1px; background: var(--border); }
+.section-header { display: flex; align-items: center; gap: 12px; margin: 28px 0 16px; }
+.section-header h3 { font-size: 1rem; font-weight: 600; color: var(--txt); margin: 0; letter-spacing: 0.3px; }
+.section-divider { flex: 1; height: 1px; background: var(--border); }
 
-    .tl-wrap { position: relative; padding-left: 28px; }
-    .tl-wrap::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 0; width: 1px; background: var(--border); }
-    .tl-item { position: relative; margin-bottom: 20px; }
-    .tl-dot  { position: absolute; left: -24px; top: 5px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); background: var(--bg); box-shadow: 0 0 8px rgba(0,229,180,0.3); }
-    .tl-dot.warn   { border-color: var(--warn);   box-shadow: 0 0 8px rgba(255,184,0,0.3); }
-    .tl-dot.danger { border-color: var(--danger); box-shadow: 0 0 8px rgba(255,68,85,0.3); }
-    .tl-time { font-family: var(--mono); font-size: 0.72rem; color: var(--txt-muted); margin-bottom: 6px; letter-spacing: 1px; }
-    .tl-body { background: transparent; padding: 0; }
-    .tl-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-family: var(--mono); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid; margin-left: 8px; }
+.tl-wrap { position: relative; padding-left: 28px; }
+.tl-wrap::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 0; width: 1px; background: var(--border); }
+.tl-item { position: relative; margin-bottom: 20px; }
+.tl-dot  { position: absolute; left: -24px; top: 5px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); background: var(--bg); box-shadow: 0 0 8px rgba(0,229,180,0.3); }
+.tl-dot.warn   { border-color: var(--warn);   box-shadow: 0 0 8px rgba(255,184,0,0.3); }
+.tl-dot.danger { border-color: var(--danger); box-shadow: 0 0 8px rgba(255,68,85,0.3); }
+.tl-time { font-family: var(--mono); font-size: 0.72rem; color: var(--txt-muted); margin-bottom: 6px; letter-spacing: 1px; }
+.tl-body { background: transparent; padding: 0; }
+.tl-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-family: var(--mono); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid; margin-left: 8px; }
 
-    .kpi-row { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
-    .kpi-card { flex: 1; min-width: 130px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; text-align: center; }
-    .kpi-num  { font-family: var(--mono); font-size: 1.9rem; font-weight: 700; }
-    .kpi-lbl  { font-family: var(--mono); font-size: 0.65rem; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }
+.kpi-row { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
+.kpi-card { flex: 1; min-width: 130px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; text-align: center; }
+.kpi-num  { font-family: var(--mono); font-size: 1.9rem; font-weight: 700; }
+.kpi-lbl  { font-family: var(--mono); font-size: 0.65rem; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-top: 4px; }
 
-    .calib-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px 30px; }
-    .calib-title { font-weight: 700; font-size: 1.2rem; margin-bottom: 4px; }
-    .calib-sub { font-size: 0.88rem; color: var(--txt-sub); margin-bottom: 24px; }
-    .calib-group-title { font-family: var(--mono); font-size: 0.75rem; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
+.calib-card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 28px 30px; }
+.calib-title { font-weight: 700; font-size: 1.2rem; margin-bottom: 4px; }
+.calib-sub { font-size: 0.88rem; color: var(--txt-sub); margin-bottom: 24px; }
+.calib-group-title { font-family: var(--mono); font-size: 0.75rem; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 14px; padding-bottom: 8px; border-bottom: 1px solid var(--border); }
 
-    .sb-user-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 20px; text-align: center; }
-    .sb-user-role { font-family: var(--mono); font-size: 0.7rem; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
-    .sb-user-name { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
-    .sb-section-title { font-family: var(--mono); font-size: 0.7rem; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 1.5px; margin: 20px 0 10px; }
-    .sb-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
-    .sb-lbl { font-size: 0.82rem; color: var(--txt-sub); }
-    .sb-val { font-family: var(--mono); font-size: 0.82rem; font-weight: 700; }
+.sb-user-card { background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 18px; margin-bottom: 20px; text-align: center; }
+.sb-user-role { font-family: var(--mono); font-size: 0.7rem; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 6px; }
+.sb-user-name { font-size: 1.1rem; font-weight: 700; color: var(--accent); }
+.sb-section-title { font-family: var(--mono); font-size: 0.7rem; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 1.5px; margin: 20px 0 10px; }
+.sb-row { display: flex; align-items: center; justify-content: space-between; margin-bottom: 10px; }
+.sb-lbl { font-size: 0.82rem; color: var(--txt-sub); }
+.sb-val { font-family: var(--mono); font-size: 0.82rem; font-weight: 700; }
 
-    .login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 48px 44px; text-align: center; position: relative; overflow: hidden; }
-    .login-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
-    .login-logo  { font-size: 3.5rem; margin-bottom: 8px; }
-    .login-title { font-family: var(--mono); font-size: 1.8rem; font-weight: 700; color: var(--txt); margin-bottom: 4px; }
-    .login-sub   { font-size: 0.88rem; color: var(--txt-muted); margin-bottom: 24px; }
-    .login-tag   { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,229,180,0.08); border: 1px solid rgba(0,229,180,0.2); border-radius: 999px; padding: 4px 12px; font-family: var(--mono); font-size: 0.7rem; color: var(--accent); margin: 0 4px 24px; }
-    .login-version { font-family: var(--mono); font-size: 0.65rem; color: var(--txt-muted); margin-top: 28px; letter-spacing: 1px; }
+.login-card { background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 48px 44px; text-align: center; position: relative; overflow: hidden; }
+.login-card::before { content: ''; position: absolute; top: 0; left: 0; right: 0; height: 3px; background: linear-gradient(90deg, var(--accent2), var(--accent)); }
+.login-logo  { font-size: 3.5rem; margin-bottom: 8px; }
+.login-title { font-family: var(--mono); font-size: 1.8rem; font-weight: 700; color: var(--txt); margin-bottom: 4px; }
+.login-sub   { font-size: 0.88rem; color: var(--txt-muted); margin-bottom: 24px; }
+.login-tag   { display: inline-flex; align-items: center; gap: 6px; background: rgba(0,229,180,0.08); border: 1px solid rgba(0,229,180,0.2); border-radius: 999px; padding: 4px 12px; font-family: var(--mono); font-size: 0.7rem; color: var(--accent); margin: 0 4px 24px; }
+.login-version { font-family: var(--mono); font-size: 0.65rem; color: var(--txt-muted); margin-top: 28px; letter-spacing: 1px; }
 
-    .page-header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
-    .page-title  { font-family: var(--mono); font-size: 1.4rem; font-weight: 700; color: var(--txt); margin: 0; }
-    .page-badge  { font-family: var(--mono); font-size: 0.68rem; font-weight: 700; letter-spacing: 1.5px; color: var(--accent); background: rgba(0,229,180,0.08); border: 1px solid rgba(0,229,180,0.2); border-radius: 999px; padding: 3px 10px; }
-    .live-chip   { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 0.68rem; color: var(--accent); letter-spacing: 1px; }
-    .live-dot    { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: blink 1.5s ease-in-out infinite; }
-    .offline-chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 0.68rem; color: var(--txt-muted); letter-spacing: 1px; }
-    .offline-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--txt-muted); }
+.page-header { display: flex; align-items: baseline; gap: 14px; margin-bottom: 28px; padding-bottom: 20px; border-bottom: 1px solid var(--border); }
+.page-title  { font-family: var(--mono); font-size: 1.4rem; font-weight: 700; color: var(--txt); margin: 0; }
+.page-badge  { font-family: var(--mono); font-size: 0.68rem; font-weight: 700; letter-spacing: 1.5px; color: var(--accent); background: rgba(0,229,180,0.08); border: 1px solid rgba(0,229,180,0.2); border-radius: 999px; padding: 3px 10px; }
+.live-chip   { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 0.68rem; color: var(--accent); letter-spacing: 1px; }
+.live-dot    { width: 7px; height: 7px; border-radius: 50%; background: var(--accent); animation: blink 1.5s ease-in-out infinite; }
+.offline-chip { display: inline-flex; align-items: center; gap: 6px; font-family: var(--mono); font-size: 0.68rem; color: var(--txt-muted); letter-spacing: 1px; }
+.offline-dot { width: 7px; height: 7px; border-radius: 50%; background: var(--txt-muted); }
 
-    .stTabs [data-baseweb="tab-list"] { border-bottom: 1px solid var(--border) !important; gap: 0 !important; background: transparent !important; }
-    .stTabs [data-baseweb="tab"] { font-family: var(--mono) !important; font-size: 0.78rem !important; font-weight: 700 !important; color: var(--txt-muted) !important; text-transform: uppercase !important; letter-spacing: 1px !important; padding: 12px 20px !important; border-radius: 0 !important; margin: 0 !important; }
-    .stTabs [aria-selected="true"] { color: var(--accent) !important; border-bottom: 2px solid var(--accent) !important; background: rgba(0,229,180,0.04) !important; }
+.stTabs [data-baseweb="tab-list"] { border-bottom: 1px solid var(--border) !important; gap: 0 !important; background: transparent !important; }
+.stTabs [data-baseweb="tab"] { font-family: var(--mono) !important; font-size: 0.78rem !important; font-weight: 700 !important; color: var(--txt-muted) !important; text-transform: uppercase !important; letter-spacing: 1px !important; padding: 12px 20px !important; border-radius: 0 !important; margin: 0 !important; }
+.stTabs [aria-selected="true"] { color: var(--accent) !important; border-bottom: 2px solid var(--accent) !important; background: rgba(0,229,180,0.04) !important; }
 
-    .stButton > button[kind="primary"] { background: var(--accent) !important; color: #080C14 !important; font-family: var(--mono) !important; font-size: 0.82rem !important; font-weight: 700 !important; letter-spacing: 1px !important; text-transform: uppercase !important; border: none !important; border-radius: 8px !important; }
-    .stButton > button[kind="primary"]:hover { opacity: 0.85 !important; }
-    .stButton > button:not([kind="primary"]) { background: transparent !important; color: var(--txt-muted) !important; font-family: var(--mono) !important; font-size: 0.75rem !important; font-weight: 700 !important; letter-spacing: 1px !important; text-transform: uppercase !important; border: 1px solid var(--border) !important; border-radius: 8px !important; }
-    .stButton > button:not([kind="primary"]):hover { border-color: var(--txt-muted) !important; color: var(--txt) !important; }
+.stButton > button[kind="primary"] { background: var(--accent) !important; color: #080C14 !important; font-family: var(--mono) !important; font-size: 0.82rem !important; font-weight: 700 !important; letter-spacing: 1px !important; text-transform: uppercase !important; border: none !important; border-radius: 8px !important; }
+.stButton > button[kind="primary"]:hover { opacity: 0.85 !important; }
+.stButton > button:not([kind="primary"]) { background: transparent !important; color: var(--txt-muted) !important; font-family: var(--mono) !important; font-size: 0.75rem !important; font-weight: 700 !important; letter-spacing: 1px !important; text-transform: uppercase !important; border: 1px solid var(--border) !important; border-radius: 8px !important; }
+.stButton > button:not([kind="primary"]):hover { border-color: var(--txt-muted) !important; color: var(--txt) !important; }
 
-    div[data-baseweb="input"] { background: var(--bg) !important; border-color: var(--border) !important; border-radius: 8px !important; }
-    div[data-baseweb="input"]:focus-within { border-color: var(--accent) !important; box-shadow: 0 0 0 2px rgba(0,229,180,0.1) !important; }
-    div[data-baseweb="input"] > input { color: var(--txt) !important; font-family: var(--sans) !important; }
-    div[data-baseweb="select"] > div { background: var(--surface) !important; border-color: var(--border) !important; color: var(--txt) !important; border-radius: 8px !important; }
-    </style>
-    """, unsafe_allow_html=True)
+div[data-baseweb="input"] { background: var(--bg) !important; border-color: var(--border) !important; border-radius: 8px !important; }
+div[data-baseweb="input"]:focus-within { border-color: var(--accent) !important; box-shadow: 0 0 0 2px rgba(0,229,180,0.1) !important; }
+div[data-baseweb="input"] > input { color: var(--txt) !important; font-family: var(--sans) !important; }
+div[data-baseweb="select"] > div { background: var(--surface) !important; border-color: var(--border) !important; color: var(--txt) !important; border-radius: 8px !important; }
+</style>
+""", unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
 #  2. CREDENCIAIS E CONSTANTES
@@ -331,7 +331,6 @@ def main():
     
     # --- Gestão de Cookies Segura ---
     cookie_manager = stx.CookieManager(key="cookie_manager_global")
-    # Força a aguardar que os cookies sejam injetados pelo componente
     if cookie_manager.get_all() is None:
         st.stop()
         
@@ -358,17 +357,17 @@ def main():
         
         with col2:
             st.markdown("""
-            <div class="login-card">
-                <div class="login-logo">🍎</div>
-                <div class="login-title">RipeRadar OS</div>
-                <div class="login-sub">Sistema Integrado de Monitorização IoT</div>
-                <div style="display:flex;justify-content:center;gap:8px;margin-bottom:28px;flex-wrap:wrap;">
-                    <span class="login-tag">● EDGE AI ACTIVE</span>
-                    <span class="login-tag">● BLE LINKED</span>
-                    <span class="login-tag">● INFLUXDB READY</span>
-                </div>
-            </div>
-            """, unsafe_allow_html=True)
+<div class="login-card">
+    <div class="login-logo">🍎</div>
+    <div class="login-title">RipeRadar OS</div>
+    <div class="login-sub">Sistema Integrado de Monitorização IoT</div>
+    <div style="display:flex;justify-content:center;gap:8px;margin-bottom:28px;flex-wrap:wrap;">
+        <span class="login-tag">● EDGE AI ACTIVE</span>
+        <span class="login-tag">● BLE LINKED</span>
+        <span class="login-tag">● INFLUXDB READY</span>
+    </div>
+</div>
+""", unsafe_allow_html=True)
             st.markdown("<br>", unsafe_allow_html=True)
 
             if is_terminal:
@@ -425,32 +424,32 @@ def main():
         with st.sidebar:
             st.markdown("<br>", unsafe_allow_html=True)
             st.markdown(f"""
-                <div class="sb-user-card">
-                    <div class="sb-user-role">Operador Ativo</div>
-                    <div class="sb-user-name">{st.session_state.cargo}</div>
-                </div>
-            """, unsafe_allow_html=True)
+<div class="sb-user-card">
+    <div class="sb-user-role">Operador Ativo</div>
+    <div class="sb-user-name">{st.session_state.cargo}</div>
+</div>
+""", unsafe_allow_html=True)
             st.button("↩ Terminar Sessão", on_click=logout, use_container_width=True)
             
             st.markdown("<div class='sb-section-title' style='margin-top:30px;'>Estado do Hardware</div>", unsafe_allow_html=True)
             st.markdown(f"""
-                <div class="sb-row" style="margin-top:10px;">
-                    <span class="sb-lbl">InfluxDB</span>
-                    <span class="sb-val" style="color:{color_on if influx_online else color_off};">{lbl_on if influx_online else lbl_off}</span>
-                </div>
-                <div class="sb-row">
-                    <span class="sb-lbl">MQTT Broker</span>
-                    <span class="sb-val" style="color:{color_on if influx_online else color_off};">{lbl_act if influx_online else lbl_off}</span>
-                </div>
-                <div class="sb-row">
-                    <span class="sb-lbl">Nicla Sense ME</span>
-                    <span class="sb-val" style="color:{color_on if nicla_online else color_off};">{lbl_on if nicla_online else lbl_off}</span>
-                </div>
-                <div class="sb-row">
-                    <span class="sb-lbl">Arduino BLE 33 SENSE</span>
-                    <span class="sb-val" style="color:{color_on if vision_online else color_off};">{lbl_on if vision_online else lbl_off}</span>
-                </div>
-            """, unsafe_allow_html=True)
+<div class="sb-row" style="margin-top:10px;">
+    <span class="sb-lbl">InfluxDB</span>
+    <span class="sb-val" style="color:{color_on if influx_online else color_off};">{lbl_on if influx_online else lbl_off}</span>
+</div>
+<div class="sb-row">
+    <span class="sb-lbl">MQTT Broker</span>
+    <span class="sb-val" style="color:{color_on if influx_online else color_off};">{lbl_act if influx_online else lbl_off}</span>
+</div>
+<div class="sb-row">
+    <span class="sb-lbl">Nicla Sense ME</span>
+    <span class="sb-val" style="color:{color_on if nicla_online else color_off};">{lbl_on if nicla_online else lbl_off}</span>
+</div>
+<div class="sb-row">
+    <span class="sb-lbl">Arduino BLE 33 SENSE</span>
+    <span class="sb-val" style="color:{color_on if vision_online else color_off};">{lbl_on if vision_online else lbl_off}</span>
+</div>
+""", unsafe_allow_html=True)
             st.markdown("<div class='sb-section-title' style='margin-top:20px;'>Telemetria</div>", unsafe_allow_html=True)
             auto_refresh = st.toggle("Live Refresh (5s)", value=True)
 
@@ -475,14 +474,14 @@ def main():
             lote_html = f"<div style='background:rgba(0,144,255,0.1); border:1px solid rgba(0,144,255,0.3); color:#0090FF; padding:4px 12px; border-radius:999px; font-family:var(--mono); font-size:0.7rem; font-weight:700; letter-spacing:0.5px;'>📦 LOTE RENOVADO: {tempo_str}</div>"
 
         st.markdown(f"""
-            <div class="page-header" style="align-items: center;">
-                <span class="page-title">Centro de Comando Analítico</span>
-                <span class="page-badge">RipeRadar OS</span>
-                {lote_html}
-                <span style="flex:1;"></span>
-                {chip_html}
-            </div>
-        """, unsafe_allow_html=True)
+<div class="page-header" style="align-items: center;">
+    <span class="page-title">Centro de Comando Analítico</span>
+    <span class="page-badge">RipeRadar OS</span>
+    {lote_html}
+    <span style="flex:1;"></span>
+    {chip_html}
+</div>
+""", unsafe_allow_html=True)
 
         if st.session_state.cargo == "Chefe de Loja":
             tab_dash, tab_time, tab_admin = st.tabs(["MONITORIZAÇÃO", "ANÁLISE HISTÓRICA", "CALIBRAÇÃO"])
@@ -509,14 +508,14 @@ def main():
                 with col_s:
                     conf_d = conf * 100 if conf <= 1 else conf
                     st.markdown(f"""
-                        <div class="status-banner" style="background:{sev_bg[sev]};border-color:{sev_bdr[sev]};">
-                            <div class="status-accent-bar" style="background:{cor_hex};"></div>
-                            <div class="status-label">Alvo Identificado</div>
-                            <div class="status-target">🎯 {formatar_nome(fruta)} &nbsp;·&nbsp; Confiança: <span style="font-family:var(--mono);font-weight:700;color:{cor_hex};">{conf_d:.1f}%</span></div>
-                            <div class="status-main" style="color:{cor_hex};">{estado}</div>
-                            <span class="status-action" style="color:{cor_hex};border-color:{sev_bdr[sev]};background:rgba(0,0,0,0.2);">▶ {acao}</span>
-                        </div>
-                    """, unsafe_allow_html=True)
+<div class="status-banner" style="background:{sev_bg[sev]};border-color:{sev_bdr[sev]};">
+    <div class="status-accent-bar" style="background:{cor_hex};"></div>
+    <div class="status-label">Alvo Identificado</div>
+    <div class="status-target">🎯 {formatar_nome(fruta)} &nbsp;·&nbsp; Confiança: <span style="font-family:var(--mono);font-weight:700;color:{cor_hex};">{conf_d:.1f}%</span></div>
+    <div class="status-main" style="color:{cor_hex};">{estado}</div>
+    <span class="status-action" style="color:{cor_hex};border-color:{sev_bdr[sev]};background:rgba(0,0,0,0.2);">▶ {acao}</span>
+</div>
+""", unsafe_allow_html=True)
                     
                     if latest.get('classe_dominante', 'Desconhecido').lower() == "desconhecido":
                         st.markdown("<br>", unsafe_allow_html=True)
@@ -565,13 +564,15 @@ def main():
                     ("LATÊNCIA MQTT", "124",         "ms"),
                 ]):
                     col.markdown(f"""
-                        <div class="metric-card">
-                            <div class="metric-label"><span class="metric-dot"></span>{lbl}</div>
-                            <div class="metric-value">{val}<span class="metric-unit">{unit}</span></div>
-                        </div>
-                    """, unsafe_allow_html=True)
+<div class="metric-card">
+    <div class="metric-label"><span class="metric-dot"></span>{lbl}</div>
+    <div class="metric-value">{val}<span class="metric-unit">{unit}</span></div>
+</div>
+""", unsafe_allow_html=True)
 
-                st.markdown("""<div class="section-header"><h3>Evolução VOC — Última Hora</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
+                st.markdown("""
+<div class="section-header"><h3>Evolução VOC — Última Hora</h3><div class="section-divider"></div></div>
+""", unsafe_allow_html=True)
 
                 df_plot = df_live.dropna(subset=['voc_gas']).sort_values('_time')
                 fig_line = go.Figure()
@@ -587,15 +588,15 @@ def main():
 
             else:
                 st.markdown("""
-                    <div style="text-align: center; padding: 100px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-top: 10px;">
-                        <div style="font-size: 3.5rem; margin-bottom: 12px; opacity: 0.8;">🔌</div>
-                        <h2 style="font-family: var(--mono); color: var(--txt); font-weight: 700; letter-spacing: 1px; margin-bottom: 8px;">TELEMETRIA OFFLINE</h2>
-                        <p style="color: var(--txt-sub); font-size: 0.95rem; max-width: 480px; margin: 0 auto;">
-                            Sem pacotes de dados recebidos nos últimos 3 minutos.<br><br>
-                            Verifique a ligação de rede do <span style="color:var(--txt);">EDGE Gateway</span> e a alimentação dos dispositivos <span style="color:var(--txt);">Nicla Sense ME</span> e <span style="color:var(--txt);">Arduino BLE 33 SENSE</span>.
-                        </p>
-                    </div>
-                """, unsafe_allow_html=True)
+<div style="text-align: center; padding: 100px 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; margin-top: 10px;">
+    <div style="font-size: 3.5rem; margin-bottom: 12px; opacity: 0.8;">🔌</div>
+    <h2 style="font-family: var(--mono); color: var(--txt); font-weight: 700; letter-spacing: 1px; margin-bottom: 8px;">TELEMETRIA OFFLINE</h2>
+    <p style="color: var(--txt-sub); font-size: 0.95rem; max-width: 480px; margin: 0 auto;">
+        Sem pacotes de dados recebidos nos últimos 3 minutos.<br><br>
+        Verifique a ligação de rede do <span style="color:var(--txt);">EDGE Gateway</span> e a alimentação dos dispositivos <span style="color:var(--txt);">Nicla Sense ME</span> e <span style="color:var(--txt);">Arduino BLE 33 SENSE</span>.
+    </p>
+</div>
+""", unsafe_allow_html=True)
 
         # ══════════════════════════════════════════════════════════════
         #  TAB 2 — ANÁLISE HISTÓRICA
@@ -669,15 +670,17 @@ def main():
                         pct_ok     = round(n_ok / total * 100, 1) if total > 0 else 0
                         
                         st.markdown(f"""
-                        <div class="kpi-row">
-                            <div class="kpi-card"><div class="kpi-num" style="color:#E8EEF8;">{total}</div><div class="kpi-lbl">Leituras Totais</div></div>
-                            <div class="kpi-card"><div class="kpi-num" style="color:#FF4455;">{n_criticos}</div><div class="kpi-lbl">Alertas Críticos</div></div>
-                            <div class="kpi-card"><div class="kpi-num" style="color:#FFB800;">{n_atencao}</div><div class="kpi-lbl">Em Atenção</div></div>
-                            <div class="kpi-card"><div class="kpi-num" style="color:#00E5B4;">{pct_ok}%</div><div class="kpi-lbl">Taxa Conformidade</div></div>
-                        </div>
-                        """, unsafe_allow_html=True)
+<div class="kpi-row">
+    <div class="kpi-card"><div class="kpi-num" style="color:#E8EEF8;">{total}</div><div class="kpi-lbl">Leituras Totais</div></div>
+    <div class="kpi-card"><div class="kpi-num" style="color:#FF4455;">{n_criticos}</div><div class="kpi-lbl">Alertas Críticos</div></div>
+    <div class="kpi-card"><div class="kpi-num" style="color:#FFB800;">{n_atencao}</div><div class="kpi-lbl">Em Atenção</div></div>
+    <div class="kpi-card"><div class="kpi-num" style="color:#00E5B4;">{pct_ok}%</div><div class="kpi-lbl">Taxa Conformidade</div></div>
+</div>
+""", unsafe_allow_html=True)
 
-                        st.markdown("""<div class="section-header"><h3>Evolução da Resistência VOC por Produto</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
+                        st.markdown("""
+<div class="section-header"><h3>Evolução da Resistência VOC por Produto</h3><div class="section-divider"></div></div>
+""", unsafe_allow_html=True)
 
                         df_daily = (df_periodo.assign(dia=lambda d: d["_time"].dt.date).groupby(["dia","classe_dominante"])["voc_gas"].mean().reset_index())
                         fig_voc = go.Figure()
@@ -701,14 +704,16 @@ def main():
                         st.plotly_chart(fig_voc, use_container_width=True)
 
                         st.markdown("<br>", unsafe_allow_html=True)
-                        st.markdown("""<div class="section-header"><h3>Registo de Eventos de Qualidade</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
+                        st.markdown("""
+<div class="section-header"><h3>Registo de Eventos de Qualidade</h3><div class="section-divider"></div></div>
+""", unsafe_allow_html=True)
                         
                         st.markdown("""
-                            <p style='font-size:0.85rem;color:var(--txt-muted);margin-bottom:20px;'>
-                            As leituras são agrupadas por <strong>dia</strong> e por estado (<strong>fruto detetado</strong>).<br>
-                            <em>Nota: Os dias em que não ocorreram alertas não são exibidos se o filtro superior os excluir.</em>
-                            </p>
-                        """, unsafe_allow_html=True)
+<p style='font-size:0.85rem;color:var(--txt-muted);margin-bottom:20px;'>
+As leituras são agrupadas por <strong>dia</strong> e por estado (<strong>fruto detetado</strong>).<br>
+<em>Nota: Os dias em que não ocorreram alertas não são exibidos se o filtro superior os excluir.</em>
+</p>
+""", unsafe_allow_html=True)
 
                         if df_eventos.empty:
                             st.info("✅ Sem eventos de risco registados para os filtros selecionados nos últimos dias.")
@@ -728,14 +733,14 @@ def main():
                                 badge_html = f"<span class='tl-badge' style='color:#FF4455;border-color:rgba(255,68,85,0.3);'>⬤ {n_crit_dia} críticos</span>" if n_crit_dia > 0 else ""
 
                                 st.markdown(f"""
-                                <div class="tl-item">
-                                    <div class="tl-dot {dot_cls}"></div>
-                                    <div class="tl-time">📅 {dia_label.upper()}</div>
-                                    <div class="tl-body">
-                                        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                                            <span style="font-weight:700;color:{cor_dia};">{len(grupo_dia)} leituras destacadas</span>{badge_html}
-                                        </div>
-                                """, unsafe_allow_html=True)
+<div class="tl-item">
+    <div class="tl-dot {dot_cls}"></div>
+    <div class="tl-time">📅 {dia_label.upper()}</div>
+    <div class="tl-body">
+        <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
+            <span style="font-weight:700;color:{cor_dia};">{len(grupo_dia)} leituras destacadas</span>{badge_html}
+        </div>
+""", unsafe_allow_html=True)
 
                                 for fruta_id, g_fruta in grupo_dia.groupby("classe_dominante"):
                                     g_fruta = g_fruta.sort_values("_time", ascending=False)
@@ -752,27 +757,27 @@ def main():
                                         voc_val = 0.0 if pd.isna(voc_raw) else float(voc_raw) / 1000
 
                                         st.markdown(f"""
-                                        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;position:relative;">
-                                            <div style="position:absolute;top:14px;right:16px;font-family:var(--mono);font-size:0.75rem;color:var(--txt-muted);">
-                                                ⏱️ {hora_local}
-                                            </div>
-                                            
-                                            <div style="margin-bottom:10px;">
-                                                <span style="font-family:var(--mono);font-size:0.68rem;color:var(--txt-muted);">PRODUTO&nbsp;</span>
-                                                <span style="font-family:var(--mono);font-size:0.82rem;color:var(--txt);font-weight:700;text-transform:uppercase;">{formatar_nome(fruta_id)}</span>
-                                            </div>
-                                            
-                                            <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-                                                <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{row.get('estado', 'Desconhecido')}</span>
-                                            </div>
-                                            
-                                            <div style="display:flex;gap:20px;font-size:0.82rem;color:var(--txt-muted);flex-wrap:wrap;">
-                                                <span>VOC Detetado: <span style="font-family:var(--mono);color:var(--txt);">{voc_val:.2f} kΩ</span></span>
-                                                <span>Temp: <span style="font-family:var(--mono);color:var(--txt);">{temp_val:.1f} °C</span></span>
-                                                <span>Ação exigida: <strong style="color:{cor_ev};">{row.get('acao', '-')}</strong></span>
-                                            </div>
-                                        </div>
-                                        """, unsafe_allow_html=True)
+        <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;position:relative;">
+            <div style="position:absolute;top:14px;right:16px;font-family:var(--mono);font-size:0.75rem;color:var(--txt-muted);">
+                ⏱️ {hora_local}
+            </div>
+            
+            <div style="margin-bottom:10px;">
+                <span style="font-family:var(--mono);font-size:0.68rem;color:var(--txt-muted);">PRODUTO&nbsp;</span>
+                <span style="font-family:var(--mono);font-size:0.82rem;color:var(--txt);font-weight:700;text-transform:uppercase;">{formatar_nome(fruta_id)}</span>
+            </div>
+            
+            <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+                <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{row.get('estado', 'Desconhecido')}</span>
+            </div>
+            
+            <div style="display:flex;gap:20px;font-size:0.82rem;color:var(--txt-muted);flex-wrap:wrap;">
+                <span>VOC Detetado: <span style="font-family:var(--mono);color:var(--txt);">{voc_val:.2f} kΩ</span></span>
+                <span>Temp: <span style="font-family:var(--mono);color:var(--txt);">{temp_val:.1f} °C</span></span>
+                <span>Ação exigida: <strong style="color:{cor_ev};">{row.get('acao', '-')}</strong></span>
+            </div>
+        </div>
+""", unsafe_allow_html=True)
 
                                 st.markdown("</div></div>", unsafe_allow_html=True)
                             st.markdown('</div>', unsafe_allow_html=True)
@@ -784,9 +789,9 @@ def main():
             st.markdown("<div class='calib-card'>", unsafe_allow_html=True)
             with st.form("calibration_form"):
                 st.markdown("""
-                    <div class="calib-title">Parâmetros do Modelo de Late Fusion</div>
-                    <div class="calib-sub">Sintonize a janela de resistência do sensor Nicla Sense ME. Recomendado suspender o Live Refresh antes de operar.</div>
-                """, unsafe_allow_html=True)
+<div class="calib-title">Parâmetros do Modelo de Late Fusion</div>
+<div class="calib-sub">Sintonize a janela de resistência do sensor Nicla Sense ME. Recomendado suspender o Live Refresh antes de operar.</div>
+""", unsafe_allow_html=True)
                 col_a, col_b = st.columns(2)
                 with col_a:
                     st.markdown("<div class='calib-group-title'>🍌 Fenologia Climatérica (Banana / Maçã)</div>", unsafe_allow_html=True)
