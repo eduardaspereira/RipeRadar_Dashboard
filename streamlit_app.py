@@ -678,7 +678,7 @@ else:
                 sev_filtro = st.multiselect(
                     "Mostrar eventos",
                     ["success","danger"],
-                    default=["danger"],
+                    default=["success", "danger"],
                     format_func=lambda x: {"success":"✅ Normais", "danger":"🔴 Críticos"}[x]
                 )
             
@@ -735,9 +735,13 @@ else:
                         
                         fig_count = go.Figure()
                         
-                        for f_nome in df_minuto["classe_dominante"].unique():
+                        # Definir uma paleta de cores variada e vibrante para distinguir várias linhas
+                        cores_distintas = ['#00E5B4', '#0090FF', '#FFB800', '#FF4455', '#9D4EDD', '#F15BB5', '#00BBF9', '#00F5D4']
+                        unique_classes = df_minuto["classe_dominante"].unique()
+                        
+                        for idx, f_nome in enumerate(unique_classes):
                             dd = df_minuto[df_minuto["classe_dominante"]==f_nome]
-                            cor_linha = obter_cor_estado(f_nome)
+                            cor_linha = cores_distintas[idx % len(cores_distintas)]
                             
                             fig_count.add_trace(go.Scatter(
                                 x=dd["minuto"], y=dd["contagem"], mode='lines+markers', name=formatar_nome(f_nome),
