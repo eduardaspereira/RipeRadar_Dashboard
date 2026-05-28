@@ -291,7 +291,7 @@ def formatar_nome(raw_name):
 
 def obter_cor_estado(raw_name):
     nome_min = str(raw_name).lower()
-    if any(x in nome_min for x in ["fresc", "verd"]): return "#00E5B4"
+    if any(x in nome_min for x in ["fresc"]): return "#00E5B4"
     if any(x in nome_min for x in ["podr", "senesc"]): return "#FF4455"
     return "#8BA0BC"
 
@@ -299,7 +299,7 @@ meses_pt = {1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6:
 
 # ── FUNÇÕES DE LATE FUSION LOCAL (PARA OS SLIDERS FUNCIONAREM) ──
 def calcular_late_fusion_local(row_or_dict):
-    """Refaz a Late Fusion baseando-se nos valores brutos e na Calibração atual do Dashboard. Apenas suporta Fruta Climatérica / Não Climatérica em estado Verde ou Senescência, retendo a fruta."""
+    """Refaz a Late Fusion baseando-se nos valores brutos e na Calibração atual do Dashboard. Apenas suporta Fruta Climatérica / Não Climatérica em estado Fresca ou Senescência, retendo a fruta."""
     label = str(row_or_dict.get('label_camara', row_or_dict.get('classe_dominante', 'desconhecido'))).lower()
     conf = float(row_or_dict.get('confianca', 1.0))
     voc = float(row_or_dict.get('voc_gas', 0.0))
@@ -324,10 +324,10 @@ def calcular_late_fusion_local(row_or_dict):
     
     nicla_state = "desconhecido"
     if categoria == "climaterica":
-        if voc > clim_limiar: nicla_state = "verde"
+        if voc > clim_limiar: nicla_state = "fresca"
         else: nicla_state = "senescência"
     elif categoria == "nao_climaterica":
-        if voc > nclim_limiar: nicla_state = "verde"
+        if voc > nclim_limiar: nicla_state = "fresca"
         else: nicla_state = "senescência"
         
     classe_final = f"{fruto_especifico}_{nicla_state}" if fruto_especifico != "desconhecido" else "desconhecido"
@@ -339,7 +339,7 @@ def calcular_late_fusion_local(row_or_dict):
 
 def processar_decisao(classe_fused):
     """
-    Retorna os textos e cores FINAIS da interface baseando-se no binómio verde/senescência.
+    Retorna os textos e cores FINAIS da interface baseando-se no binómio fresca/senescência.
     """
     c = str(classe_fused).lower()
     if "desconhecido" in c:
@@ -347,8 +347,8 @@ def processar_decisao(classe_fused):
         
     is_clim = any(f in c for f in ["maçã", "maca", "banana", "apple"])
     
-    if "verde" in c or "fresc" in c:
-        return ("VERDE / FRESCA", "#00E5B4", "PRATELEIRA", "success")
+    if "fresc" in c:
+        return ("FRESCA", "#00E5B4", "PRATELEIRA", "success")
     elif "senescência" in c or "podre" in c:
         return ("SENESCÊNCIA / PODRE", "#FF4455", "RETIRAR DE IMEDIATO" if is_clim else "REJEITAR LOTE", "danger")
     else:
@@ -576,7 +576,7 @@ else:
                     <div class="status-banner" style="background:{sev_bg.get(sev, 'rgba(139,160,188,0.06)')};border-color:{sev_bdr.get(sev, 'rgba(139,160,188,0.2)')};">
                         <div class="status-accent-bar" style="background:{cor_hex};"></div>
                         <div class="status-label">Fruta Identificada</div>
-                        <div class="status-target">{formatar_nome(decisao_final)} &nbsp;·&nbsp; IA Confiança Base: <span style="font-family:var(--mono);font-weight:700;color:{cor_hex};">{conf_percent:.1f}%</span></div>
+                        <div class="status-target">{formatar_nome(decisao_final)} &nbsp;·&nbsp; Confiança do Sistema: <span style="font-family:var(--mono);font-weight:700;color:{cor_hex};">{conf_percent:.1f}%</span></div>
                         <div class="status-main" style="color:{cor_hex};">{estado}</div>
                         <span class="status-action" style="color:{cor_hex};border-color:{sev_bdr.get(sev, 'rgba(139,160,188,0.2)')};background:rgba(0,0,0,0.2);">▶ {acao}</span>
                     </div>
@@ -586,18 +586,18 @@ else:
                 is_clim = any(f in decisao_final.lower() for f in ["maçã", "maca", "banana", "apple"])
                 limiar_atual = thresholds.get("clim_limiar", 28500) if is_clim else thresholds.get("nclim_limiar", 28500)
 
-                # Gráfico ajustado (19kohm a 38kohm), verde/senescência apenas
+                # Gráfico ajustado (19kohm a 40kohm), fresca/senescência apenas
                 fig_gauge = go.Figure(go.Indicator(
                     mode="gauge+number", value=voc,
                     number={'suffix':" Ω",'font':{'size':28,'color':'#E8EEF8','family':'Space Mono'}},
                     title={'text':"RESISTÊNCIA VOC (Ω)",'font':{'size':11,'color':'#5A7090','family':'DM Sans'}},
                     gauge={
-                        'axis':{'range':[19000, 38000],'tickwidth':1,'tickcolor':"#1E2D45",'tickfont':{'color':'#5A7090','size':10}},
+                        'axis':{'range':[19000, 40000],'tickwidth':1,'tickcolor':"#1E2D45",'tickfont':{'color':'#5A7090','size':10}},
                         'bar':{'color':cor_hex,'thickness':0.22},
                         'bgcolor':"#0E1420",'borderwidth':1,'bordercolor':"#1E2D45",
                         'steps':[
                             {'range':[19000, limiar_atual],  'color':"rgba(255,68,85,0.15)"},  # Senescência (Baixa resistência = mais gás)
-                            {'range':[limiar_atual, 38000],  'color':"rgba(0,229,180,0.15)"}   # Verde
+                            {'range':[limiar_atual, 40000],  'color':"rgba(0,229,180,0.15)"}   # Fresca
                         ],
                         'threshold':{'line':{'color':cor_hex,'width':2},'thickness':0.8,'value':voc}
                     }
@@ -654,277 +654,4 @@ else:
             col_f1, col_f2, col_f3 = st.columns([1, 1, 2])
             
             with col_f1:
-                periodo = st.selectbox("Período", ["Últimas 12 horas", "Últimas 24 horas", "Últimos 7 dias", "Últimos 30 dias", "Últimos 90 dias"], index=2)
-            dias_map = {"Últimas 12 horas":"12h", "Últimas 24 horas":"24h", "Últimos 7 dias":"7d", "Últimos 30 dias":"30d", "Últimos 90 dias":"90d"}
-            
-            # Fetch data and apply local fusion so history obeys the calibration sliders!
-            df_hist_real = fetch_history_data(dias_map[periodo])
-            if not df_hist_real.empty and 'classe_dominante' in df_hist_real.columns and 'voc_gas' in df_hist_real.columns:
-                df_hist_real = df_hist_real.dropna(subset=['voc_gas', 'classe_dominante']).copy()
-                df_hist_real['classe_dominante'] = df_hist_real.apply(lambda r: calcular_late_fusion_local(r)[0], axis=1)
-                unique_raw_classes = df_hist_real['classe_dominante'].unique().tolist()
-            else:
-                unique_raw_classes = []
-                
-            options_produtos = ["Todos"] + sorted(unique_raw_classes)
-
-            with col_f2:
-                fruta_filtro = st.selectbox("Produto / Estado", options_produtos, format_func=formatar_nome)
-                
-            with col_f3:
-                sev_filtro = st.multiselect(
-                    "Mostrar eventos",
-                    ["success","danger"],
-                    default=["danger"],
-                    format_func=lambda x: {"success":"✅ Normais", "danger":"🔴 Críticos"}[x]
-                )
-            
-            if df_hist_real.empty:
-                st.warning("📊 Não existem dados reais suficientes no InfluxDB para gerar a análise histórica neste período.")
-            else:
-                df_periodo = df_hist_real.copy()
-                
-                if fruta_filtro != "Todos":
-                    df_periodo = df_periodo[df_periodo["classe_dominante"] == fruta_filtro]
-
-                if df_periodo.empty:
-                    st.info("Sem leituras reais para a seleção atual.")
-                else:
-                    # Aplica as cores/textos com base na string já fundida
-                    resultados = df_periodo['classe_dominante'].apply(processar_decisao)
-                    df_periodo['estado'] = [r[0] for r in resultados]
-                    df_periodo['cor'] = [r[1] for r in resultados]
-                    df_periodo['acao'] = [r[2] for r in resultados]
-                    df_periodo['severidade'] = [r[3] for r in resultados]
-
-                    df_eventos = df_periodo[df_periodo["severidade"].isin(sev_filtro)].copy() if sev_filtro else df_periodo.copy()
-
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    total      = len(df_periodo)
-                    n_criticos = len(df_periodo[df_periodo["severidade"]=="danger"])
-                    n_ok       = len(df_periodo[df_periodo["severidade"]=="success"])
-                    pct_ok     = round(n_ok / total * 100, 1) if total > 0 else 0
-                    
-                    st.markdown(f"""
-                    <div class="kpi-row">
-                        <div class="kpi-card"><div class="kpi-num" style="color:#E8EEF8;">{total}</div><div class="kpi-lbl">Leituras Totais</div></div>
-                        <div class="kpi-card"><div class="kpi-num" style="color:#FF4455;">{n_criticos}</div><div class="kpi-lbl">Alertas Críticos (Senescência)</div></div>
-                        <div class="kpi-card"><div class="kpi-num" style="color:#00E5B4;">{pct_ok}%</div><div class="kpi-lbl">Taxa Conformidade (Verde)</div></div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-                    st.markdown("""<div class="section-header"><h3>Evolução da Resistência VOC por Produto</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
-
-                    df_daily = (df_periodo.assign(dia=lambda d: d["_time"].dt.date).groupby(["dia","classe_dominante"])["voc_gas"].mean().reset_index())
-                    fig_voc = go.Figure()
-                    
-                    for f_nome in df_daily["classe_dominante"].unique():
-                        dd = df_daily[df_daily["classe_dominante"]==f_nome]
-                        cor_linha = obter_cor_estado(f_nome)
-                        
-                        fig_voc.add_trace(go.Scatter(
-                            x=dd["dia"], y=dd["voc_gas"], mode='lines+markers', name=formatar_nome(f_nome),
-                            line=dict(color=cor_linha, width=2.5, shape='spline'),
-                            fill='tozeroy', fillcolor="rgba(0,0,0,0)",
-                            hovertemplate=f'<b>%{{x}}</b><br>{formatar_nome(f_nome)}: %{{y:.0f}} Ω<extra></extra>'
-                        ))
-
-                    fig_voc.add_hline(y=thresholds.get("clim_limiar", 28500), line_dash="dot", line_color="rgba(0,229,180,0.35)", annotation_text="Limiar Climatérica", annotation_font_color="#00E5B4", annotation_font_size=10)
-                    fig_voc.add_hline(y=thresholds.get("nclim_limiar", 28500), line_dash="dot", line_color="rgba(0,229,180,0.35)", annotation_text="Limiar Não-Climatérica", annotation_font_color="#00E5B4", annotation_font_size=10)
-
-                    layout_voc = {**PLOT_LAYOUT, "height": 340, "yaxis_title": "Resistência (Ω)"}
-                    fig_voc.update_layout(**layout_voc)
-                    
-                    st.plotly_chart(fig_voc, use_container_width=True)
-
-                    st.markdown("<br>", unsafe_allow_html=True)
-                    st.markdown("""<div class="section-header"><h3>Registo de Eventos de Qualidade</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
-                    
-                    st.markdown("""
-                        <p style='font-size:0.85rem;color:var(--txt-muted);margin-bottom:20px;'>
-                        As leituras são agrupadas por <strong>dia</strong> e por estado (<strong>fruto detetado</strong>).<br>
-                        <em>Nota: Os dias em que não ocorreram alertas não são exibidos se o filtro superior os excluir.</em>
-                        </p>
-                    """, unsafe_allow_html=True)
-
-                    if df_eventos.empty:
-                        st.info("✅ Sem eventos de risco registados para os filtros selecionados.")
-                    else:
-                        df_eventos["dia_str"]  = df_eventos["_time"].apply(lambda x: f"{x.day} de {meses_pt[x.month]} de {x.year}")
-                        df_eventos["dia_date"] = df_eventos["_time"].dt.date
-                        dias_unicos = df_eventos["dia_date"].drop_duplicates().sort_values(ascending=False).head(20)
-
-                        st.markdown('<div class="tl-wrap">', unsafe_allow_html=True)
-                        for dia_date in dias_unicos:
-                            grupo_dia = df_eventos[df_eventos["dia_date"] == dia_date]
-                            dia_label = grupo_dia.iloc[0]["dia_str"]
-                            n_crit_dia = len(grupo_dia[grupo_dia["severidade"]=="danger"])
-                            dot_cls    = "danger" if n_crit_dia > 0 else "success"
-                            cor_dia    = "#FF4455" if n_crit_dia > 0 else "#00E5B4"
-
-                            badge_html = f"<span class='tl-badge' style='color:#FF4455;border-color:rgba(255,68,85,0.3);'>⬤ {n_crit_dia} críticos</span>" if n_crit_dia > 0 else ""
-
-                            st.markdown(f"""
-                            <div class="tl-item">
-                                <div class="tl-dot {dot_cls}"></div>
-                                <div class="tl-time">{dia_label.upper()}</div>
-                                <div class="tl-body">
-                                    <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                                        <span style="font-weight:700;color:{cor_dia};">{len(grupo_dia)} leituras destacadas</span>{badge_html}
-                                    </div>
-                            """, unsafe_allow_html=True)
-
-                            # Agrupar por fruto e ordenar pelo evento mais recente de cada fruto
-                            grupos_ordenados = []
-                            for fruta_id, g_fruta in grupo_dia.groupby("classe_dominante"):
-                                grupos_ordenados.append((fruta_id, g_fruta, g_fruta["_time"].max()))
-                            
-                            # Ordena de forma descendente (mais recentes primeiro)
-                            grupos_ordenados.sort(key=lambda x: x[2], reverse=True)
-
-                            for fruta_id, g_fruta, _ in grupos_ordenados:
-                                g_fruta  = g_fruta.sort_values("_time")
-                                pior     = g_fruta.sort_values("voc_gas").iloc[0]
-                                voc_med  = g_fruta["voc_gas"].mean()
-                                temp_med = g_fruta["temp"].mean() if 'temp' in g_fruta.columns else 0.0
-                                cor_ev   = pior["cor"]
-                                
-                                ultima_leitura = g_fruta.iloc[-1]
-                                hora_ultima = ultima_leitura["_time"].strftime("%H:%M:%S")
-                                trend = f"{hora_ultima}"
-
-                                st.markdown(f"""
-                                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;">
-                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                                        <div>
-                                            <span style="font-family:var(--mono);font-size:0.68rem;color:var(--txt-muted);">PRODUTO&nbsp;</span>
-                                            <span style="font-family:var(--mono);font-size:0.82rem;color:var(--txt);font-weight:700;text-transform:uppercase;">{formatar_nome(fruta_id)}</span>
-                                        </div>
-                                        <span style="font-family:var(--mono);font-weight:700;font-size:0.85rem;color:var(--txt);">{trend}</span>
-                                    </div>
-                                    <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-                                        <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{pior['estado']}</span>
-                                    </div>
-                                    <div style="display:flex;gap:20px;font-size:0.82rem;color:var(--txt-muted);flex-wrap:wrap;">
-                                        <span>VOC médio diário: <span style="font-family:var(--mono);color:var(--txt);">{voc_med/1000:.2f} kΩ</span></span>
-                                        <span>Temp média: <span style="font-family:var(--mono);color:var(--txt);">{temp_med:.1f} °C</span></span>
-                                        <span>Ação exigida: <strong style="color:{cor_ev};">{pior['acao']}</strong></span>
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
-
-                            st.markdown("</div></div>", unsafe_allow_html=True)
-                        st.markdown('</div>', unsafe_allow_html=True)
-
-    # ══════════════════════════════════════════════════════════════
-    #  TAB 3 — CALIBRAÇÃO E HARDWARE ADMIN
-    # ══════════════════════════════════════════════════════════════
-    with tab_admin:
-        st.markdown("<div class='calib-card'>", unsafe_allow_html=True)
-        with st.form("calibration_form"):
-            st.markdown("""
-                <div class="calib-title">Parâmetros do Modelo de Late Fusion</div>
-                <div class="calib-sub">Sintonize a janela de resistência do sensor Nicla Sense ME. Recomendado suspender o Live Refresh antes de operar.</div>
-            """, unsafe_allow_html=True)
-            col_a, col_b = st.columns(2)
-            with col_a:
-                st.markdown("<div class='calib-group-title'>🍌 Fruta Climatérica (Banana / Maçã)</div>", unsafe_allow_html=True)
-                clim_limiar = st.slider("Limiar Verde / Senescência (Ω)", 19000, 38000, thresholds.get("clim_limiar", 28500))
-            with col_b:
-                st.markdown("<div class='calib-group-title'>🍊 Fruta Não-Climatérica (Laranja)</div>", unsafe_allow_html=True)
-                nclim_limiar = st.slider("Limiar Fresca / Senescência (Ω)", 19000, 38000, thresholds.get("nclim_limiar", 28500))
-            
-            st.markdown("<br>", unsafe_allow_html=True)
-            submitted = st.form_submit_button("Aplicar Parâmetros →", use_container_width=True, type="primary")
-            if submitted:
-                novos_limites = {
-                    "clim_limiar": clim_limiar,
-                    "nclim_limiar": nclim_limiar
-                }
-                st.session_state.thresholds = novos_limites
-                guardar_calibracao(novos_limites)
-                st.cache_data.clear()
-                st.success("✓ Parâmetros aplicados e guardados com sucesso!")
-                time.sleep(1)
-                st.rerun()
-        st.markdown("</div>", unsafe_allow_html=True)
-        
-        if st.session_state.cargo == "Chefe de Loja":
-            st.markdown("<br>", unsafe_allow_html=True)
-            st.subheader("Configuração de Hardware RFID")
-            st.caption("Usa esta zona para autorizar este computador a escutar o Leitor RFID (EDGE Gateway).")
-            
-            if not is_terminal:
-                if st.button("💻 Registar este PC como Terminal RFID Seguro"):
-                    cookie_manager.set("terminal_loja", "true", max_age=31536000, key="set_term")
-                    st.success("✅ PC registado! Faz Logout para testar a entrada por cartão.")
-            else:
-                st.info("✅ Este computador está atualmente configurado e autorizado como Terminal RFID.")
-                if st.button("❌ Remover Registo RFID deste PC"):
-                    cookie_manager.delete("terminal_loja", key="del_term")
-                    st.warning("⚠️ Registo removido. O login passará a ser obrigatoriamente manual.")
-
-    # ══════════════════════════════════════════════════════════════
-    #  TAB 4 — LOGS DOS OPERADORES (APENAS CHEFE)
-    # ══════════════════════════════════════════════════════════════
-    if st.session_state.cargo == "Chefe de Loja":
-        with tab_logs:
-            st.markdown("""<div class="section-header"><h3>Registo de Atividade do Sistema (RFID)</h3><div class="section-divider"></div></div>""", unsafe_allow_html=True)
-            
-            df_logs = fetch_logs_operadores()
-            
-            if df_logs.empty:
-                st.info("Sem registos de atividades nos últimos 7 dias.")
-            else:
-                for _, row in df_logs.iterrows():
-                    medida = row.get('_measurement')
-                    valor = str(row.get('_value', '')).strip('"').strip()
-                    data_str = row['_time'].strftime("%d/%m/%Y")
-                    hora_str = row['_time'].strftime("%H:%M:%S")
-                    
-                    if medida == 'rfid_login':
-                        acao = "Login de Utilizador"
-                        detalhe = valor.title()
-                        icon = "👤"
-                        tag = "ACESSO"
-                        color = "var(--accent2)" # Azul
-                    elif medida == 'rfid_operacoes':
-                        if "carga_climaterica" in valor:
-                            acao = "Fruta revista"
-                            detalhe = "Frutos Climatéricos"
-                            icon = "🍏"
-                            tag = "OPERAÇÃO"
-                            color = "var(--warn)" # Amarelo/Laranja
-                        elif "carga_nao_climaterica" in valor:
-                            acao = "Fruta revista"
-                            detalhe = "Frutos Não Climatéricos"
-                            icon = "🍊"
-                            tag = "OPERAÇÃO"
-                            color = "var(--success)" # Verde
-                        else:
-                            acao = "Operação do Sistema"
-                            detalhe = valor
-                            icon = "⚙️"
-                            tag = "SISTEMA"
-                            color = "var(--txt-muted)" # Cinzento
-                    else:
-                        continue
-                            
-                    st.markdown(f"""
-                    <div class="notif-card">
-                        <div class="notif-icon">{icon}</div>
-                        <div class="notif-content">
-                            <div class="notif-title">{acao}</div>
-                            <div class="notif-sub">{detalhe}</div>
-                        </div>
-                        <div class="notif-meta">
-                            <div class="notif-time">{data_str} às {hora_str}</div>
-                            <div class="notif-badge" style="color:{color}; border-color:{color}40; background:{color}10;">{tag}</div>
-                        </div>
-                    </div>
-                    """, unsafe_allow_html=True)
-
-    # ── AUTO REFRESH DASHBOARD ─────────────────────────────────
-    if auto_refresh:
-        time.sleep(5)
-        st.rerun()
+                periodo = st.selectbox("Período", ["Últimas 12 horas", "Últimas 24 horas", "Últimos 7 dias", "Últimos 30 dias", "Últ
