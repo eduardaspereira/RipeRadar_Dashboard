@@ -110,7 +110,7 @@ def fetch_logs_operadores():
         df = client.query_api().query_data_frame(query)
         if isinstance(df, list): df = pd.concat(df)
         if isinstance(df, pd.DataFrame) and not df.empty:
-            df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon') # Ajusta o fuso horário
+            df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
             return df
         return pd.DataFrame()
     except:
@@ -290,13 +290,14 @@ meses_pt = {1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6:
 def fetch_live_data():
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-        query  = (f'from(bucket: "{INFLUX_BUCKET}") |> range(start: -1h)'
+        query  = (f'from(bucket: "{INFLUX_BUCKET}") |> range(start: -2h)'
                   f' |> filter(fn: (r) => r["_measurement"] == "mqtt_consumer")'
                   f' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")')
         df = client.query_api().query_data_frame(query)
         if isinstance(df, list): df = pd.concat(df)
         if isinstance(df, pd.DataFrame) and not df.empty:
-            df['_time'] = pd.to_datetime(df['_time'], utc=True)
+            # Força tudo a ficar na hora local de Portugal para garantir cálculos corretos
+            df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
             return df
         return pd.DataFrame()
     except:
@@ -312,7 +313,7 @@ def fetch_history_data(dias):
         df = client.query_api().query_data_frame(query)
         if isinstance(df, list): df = pd.concat(df)
         if isinstance(df, pd.DataFrame) and not df.empty:
-            df['_time'] = pd.to_datetime(df['_time'], utc=True)
+            df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
             return df
         return pd.DataFrame()
     except:
@@ -381,10 +382,10 @@ if not st.session_state.logado:
 #  DASHBOARD
 # ══════════════════════════════════════════════════════════════
 else:
-    # ── VERIFICAÇÃO DE TELEMETRIA RECENTE (ÚLTIMOS 3 MIN) ─────
+    # ── VERIFICAÇÃO DE TELEMETRIA RECENTE (ÚLTIMOS 5 MIN) ─────
     df_live = fetch_live_data()
-    agora = datetime.now(timezone.utc)
-    limite_3min = agora - timedelta(minutes=3)
+    agora_pt = pd.Timestamp.utcnow().tz_convert('Europe/Lisbon')
+    limite_tolerancia = agora_pt - pd.Timedelta(minutes=5)
     
     is_live = False
     influx_online = False
@@ -393,18 +394,18 @@ else:
     
     if not df_live.empty and '_time' in df_live.columns:
         influx_online = True
-        if df_live['_time'].max() >= limite_3min:
+        if df_live['_time'].max() >= limite_tolerancia:
             is_live = True
             
         if 'voc_gas' in df_live.columns:
             voc_times = df_live.dropna(subset=['voc_gas'])['_time']
-            if not voc_times.empty and voc_times.max() >= limite_3min:
+            if not voc_times.empty and voc_times.max() >= limite_tolerancia:
                 nicla_online = True
                 
         vision_col = 'classe_dominante' if 'classe_dominante' in df_live.columns else ('confianca' if 'confianca' in df_live.columns else None)
         if vision_col:
             vision_times = df_live.dropna(subset=[vision_col])['_time']
-            if not vision_times.empty and vision_times.max() >= limite_3min:
+            if not vision_times.empty and vision_times.max() >= limite_tolerancia:
                 vision_online = True
 
     color_on = "#00E5B4"
@@ -571,7 +572,7 @@ else:
                     <div style="font-size: 3.5rem; margin-bottom: 12px; opacity: 0.8;">🔌</div>
                     <h2 style="font-family: var(--mono); color: var(--txt); font-weight: 700; letter-spacing: 1px; margin-bottom: 8px;">TELEMETRIA OFFLINE</h2>
                     <p style="color: var(--txt-sub); font-size: 0.95rem; max-width: 480px; margin: 0 auto;">
-                        Sem pacotes de dados recebidos nos últimos 3 minutos.<br><br>
+                        Sem pacotes de dados recebidos nos últimos 5 minutos.<br><br>
                         Verifique a ligação de rede do <span style="color:var(--txt);">EDGE Gateway</span> e a alimentação dos dispositivos <span style="color:var(--txt);">Nicla Sense ME</span> e <span style="color:var(--txt);">Arduino BLE 33 SENSE</span>.
                     </p>
                 </div>
@@ -584,13 +585,11 @@ else:
         with tab_time:
             col_f1, col_f2, col_f3 = st.columns([1, 1, 2])
             
-            # Fetch base data based on days
             with col_f1:
                 periodo = st.selectbox("Período", ["Últimos 7 dias","Últimos 30 dias","Últimos 90 dias"], index=1)
             dias_map = {"Últimos 7 dias":7, "Últimos 30 dias":30, "Últimos 90 dias":90}
             df_hist_real = fetch_history_data(dias_map[periodo])
 
-            # Generate dynamic clean options for the fruit filter
             unique_raw_classes = df_hist_real['classe_dominante'].dropna().unique().tolist() if not df_hist_real.empty and 'classe_dominante' in df_hist_real.columns else []
             options_produtos = ["Todos"] + sorted(unique_raw_classes)
 
@@ -610,7 +609,6 @@ else:
             else:
                 df_periodo = df_hist_real.dropna(subset=['voc_gas', 'classe_dominante']).copy()
                 
-                # Apply filter
                 if fruta_filtro != "Todos":
                     df_periodo = df_periodo[df_periodo["classe_dominante"] == fruta_filtro]
 
@@ -708,8 +706,14 @@ else:
                                 voc_med  = g_fruta["voc_gas"].mean()
                                 temp_med = g_fruta["temp"].mean() if 'temp' in g_fruta.columns else 0.0
                                 cor_ev   = pior["cor"]
-                                trend    = "↘ A degradar" if g_fruta["voc_gas"].iloc[-1] < g_fruta["voc_gas"].iloc[0] else "↗ Estável"
-                                trend_c  = "#FF4455" if "degradar" in trend else "#00E5B4"
+                                
+                                # Adicionada a lógica da hora aqui:
+                                ultima_leitura = g_fruta.iloc[-1]
+                                hora_ultima = ultima_leitura["_time"].strftime("%H:%M")
+                                
+                                is_degrading = ultima_leitura["voc_gas"] < g_fruta["voc_gas"].iloc[0]
+                                trend    = f"↘ A degradar (às {hora_ultima})" if is_degrading else f"↗ Estável (às {hora_ultima})"
+                                trend_c  = "#FF4455" if is_degrading else "#00E5B4"
 
                                 st.markdown(f"""
                                 <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;">
@@ -795,7 +799,6 @@ else:
             if df_logs.empty:
                 st.info("Sem registos de atividades nos últimos 7 dias.")
             else:
-                # Limpar e traduzir os dados para apresentação
                 dados_tabela = []
                 for _, row in df_logs.iterrows():
                     data_hora = row['_time'].strftime("%d/%m/%Y %H:%M:%S")
