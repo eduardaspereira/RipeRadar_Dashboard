@@ -333,9 +333,9 @@ def calcular_late_fusion_local(row_or_dict):
     classe_final = f"{fruto_especifico}_{nicla_state}" if fruto_especifico != "desconhecido" else "desconhecido"
 
     if conf < 0.60 and fruto_especifico != "desconhecido":
-        return classe_final, "VOC OVERRIDE ⚡"
+        return classe_final, "VOC OVERRIDE"
     else:
-        return classe_final, "VISÃO + VOC 👁️"
+        return classe_final, "VISÃO + VOC"
 
 def processar_decisao(classe_fused):
     """
@@ -575,8 +575,8 @@ else:
                 st.markdown(f"""
                     <div class="status-banner" style="background:{sev_bg.get(sev, 'rgba(139,160,188,0.06)')};border-color:{sev_bdr.get(sev, 'rgba(139,160,188,0.2)')};">
                         <div class="status-accent-bar" style="background:{cor_hex};"></div>
-                        <div class="status-label">Alvo Identificado</div>
-                        <div class="status-target">🎯 {formatar_nome(decisao_final)} &nbsp;·&nbsp; IA Confiança Base: <span style="font-family:var(--mono);font-weight:700;color:{cor_hex};">{conf_percent:.1f}%</span></div>
+                        <div class="status-label">Fruta Identificada</div>
+                        <div class="status-target">{formatar_nome(decisao_final)} &nbsp;·&nbsp; IA Confiança Base: <span style="font-family:var(--mono);font-weight:700;color:{cor_hex};">{conf_percent:.1f}%</span></div>
                         <div class="status-main" style="color:{cor_hex};">{estado}</div>
                         <span class="status-action" style="color:{cor_hex};border-color:{sev_bdr.get(sev, 'rgba(139,160,188,0.2)')};background:rgba(0,0,0,0.2);">▶ {acao}</span>
                     </div>
