@@ -77,7 +77,6 @@ def verificar_login_rfid():
         pass 
 
 def fetch_ultima_reposicao():
-    """Vai à base de dados procurar a que horas foi passada a Tag de Nova Carga"""
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
         query = f'''
@@ -97,10 +96,8 @@ def fetch_ultima_reposicao():
         return None
 
 def fetch_logs_operadores():
-    """Vai buscar os últimos registos brutos de login e operações RFID misturados por tempo"""
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
-        # O comando group() é essencial aqui para juntar as duas medições numa tabela única
         query = f'''
         from(bucket: "{INFLUX_BUCKET}")
           |> range(start: -7d)
@@ -114,7 +111,6 @@ def fetch_logs_operadores():
             df = pd.concat(df, ignore_index=True)
             
         if isinstance(df, pd.DataFrame) and not df.empty:
-            # Forçamos a ordenação no pandas para garantir que o mais recente está no topo
             df = df.sort_values('_time', ascending=False)
             df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
             return df
@@ -175,7 +171,7 @@ h1,h2,h3,h4 { font-family: var(--sans); }
 }
 .metric-card:hover { border-color: var(--border-lit); }
 .metric-label { font-family: var(--mono); font-size: 0.68rem; color: var(--txt-muted); text-transform: uppercase; letter-spacing: 1.5px; margin-bottom: 10px; }
-.metric-value { font-family: var(--mono); font-size: 2rem; font-weight: 700; color: var(--txt); line-height: 1; }
+.metric-value { font-family: var(--mono); font-size: 1.8rem; font-weight: 700; color: var(--txt); line-height: 1.2; }
 .metric-unit  { font-family: var(--sans); font-size: 0.85rem; color: var(--txt-muted); margin-left: 4px; font-weight: 400; }
 .metric-dot   { width: 6px; height: 6px; border-radius: 50%; background: var(--accent); display: inline-block; margin-right: 6px; box-shadow: 0 0 6px var(--accent); animation: blink 2s ease-in-out infinite; }
 @keyframes blink { 0%,100%{opacity:1} 50%{opacity:0.3} }
@@ -258,15 +254,15 @@ div[data-baseweb="select"] > div { background: var(--surface) !important; border
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
-#  THRESHOLDS & FUNÇÕES BASE (COM JSON)
+#  THRESHOLDS & FUNÇÕES BASE (COM JSON) - AGORA COM A LÓGICA CORRETA
 # ══════════════════════════════════════════════════════════════
 def carregar_calibracao():
     if os.path.exists("calibracao.json"):
         with open("calibracao.json", "r") as f:
             return json.load(f)
     return {
-        "clim_fresco": 13000, "clim_maduro": 17000,
-        "nclim_firme": 13000, "nclim_risco": 16000
+        "clim_maduro": 17000, "clim_podre": 13000,
+        "nclim_risco": 16000, "nclim_podre": 13000
     }
 
 def guardar_calibracao(limites):
@@ -303,7 +299,6 @@ def fetch_live_data():
         df = client.query_api().query_data_frame(query)
         if isinstance(df, list): df = pd.concat(df)
         if isinstance(df, pd.DataFrame) and not df.empty:
-            # Força tudo a ficar na hora local de Portugal para garantir cálculos corretos
             df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
             return df
         return pd.DataFrame()
@@ -327,15 +322,18 @@ def fetch_history_data(dias):
         return pd.DataFrame()
 
 def processar_decisao(classe, voc):
+    """
+    Decisão baseada na Lógica Invertida do MOS (Alta Resistência = Menos Gás = Fresco)
+    """
     t = st.session_state.thresholds
     if any(f in str(classe).lower() for f in ["maca", "apple", "banana"]):
-        if voc < t["clim_fresco"]:    return "VERDE / FRESCO",      "#00E5B4", "PRATELEIRA",          "success"
-        elif voc <= t["clim_maduro"]: return "MADURO / ÓTIMO",      "#FFB800", "PROMOÇÃO IMEDIATA",   "warning"
-        else:                          return "PODRE / SENESCÊNCIA",  "#FF4455", "RETIRAR DE IMEDIATO", "danger"
+        if voc > t["clim_maduro"]:      return "VERDE / FRESCO",      "#00E5B4", "PRATELEIRA",          "success"
+        elif voc >= t["clim_podre"]:    return "MADURO / ÓTIMO",      "#FFB800", "PROMOÇÃO IMEDIATA",   "warning"
+        else:                           return "PODRE / SENESCÊNCIA", "#FF4455", "RETIRAR DE IMEDIATO", "danger"
     else:
-        if voc < t["nclim_firme"]:    return "FIRME / BOA",          "#00E5B4", "CONFORME",            "success"
-        elif voc <= t["nclim_risco"]: return "RISCO DE DEGRADAÇÃO",  "#FFB800", "VIGILÂNCIA REFORÇADA","warning"
-        else:                          return "DEGRADADA",            "#FF4455", "REJEITAR LOTE",       "danger"
+        if voc > t["nclim_risco"]:      return "FIRME / BOA",         "#00E5B4", "CONFORME",            "success"
+        elif voc >= t["nclim_podre"]:   return "RISCO DE DEGRADAÇÃO", "#FFB800", "VIGILÂNCIA REFORÇADA","warning"
+        else:                           return "DEGRADADA",           "#FF4455", "REJEITAR LOTE",       "danger"
 
 PLOT_LAYOUT = dict(
     paper_bgcolor='#0E1420', plot_bgcolor='#0E1420', margin=dict(l=10, r=10, t=30, b=10),
@@ -460,7 +458,6 @@ else:
     else:
         chip_html = '<span class="offline-chip"><span class="offline-dot"></span>HISTORIC (NO DATA)</span>'
 
-    # Verifica a última vez que a Tag de Rastreabilidade foi passada
     ultima_rep = fetch_ultima_reposicao()
     lote_html = ""
     if ultima_rep:
@@ -507,14 +504,24 @@ else:
             sev_bg  = {"success":"rgba(0,229,180,0.06)", "warning":"rgba(255,184,0,0.06)", "danger":"rgba(255,68,85,0.06)"}
             sev_bdr = {"success":"rgba(0,229,180,0.2)",  "warning":"rgba(255,184,0,0.2)",  "danger":"rgba(255,68,85,0.2)"}
 
+            # Lógica do Estado da Fusão (Late Fusion Override)
+            conf_percent = conf * 100 if conf <= 1 else conf
+            if conf_percent < 60:
+                fusion_mode = "VOC OVERRIDE ⚡"
+                fusion_color = "#FFB800"
+                system_conf_display = "99.9%"
+            else:
+                fusion_mode = "VISÃO + VOC 👁️"
+                fusion_color = "#00E5B4"
+                system_conf_display = f"{conf_percent:.1f}%"
+
             col_s, col_g = st.columns([1.6, 1])
             with col_s:
-                conf_d = conf * 100 if conf <= 1 else conf
                 st.markdown(f"""
                     <div class="status-banner" style="background:{sev_bg[sev]};border-color:{sev_bdr[sev]};">
                         <div class="status-accent-bar" style="background:{cor_hex};"></div>
                         <div class="status-label">Alvo Identificado</div>
-                        <div class="status-target">🎯 {formatar_nome(fruta)} &nbsp;·&nbsp; Confiança: <span style="font-family:var(--mono);font-weight:700;color:{cor_hex};">{conf_d:.1f}%</span></div>
+                        <div class="status-target">🎯 {formatar_nome(fruta)} &nbsp;·&nbsp; IA Confiança Base: <span style="font-family:var(--mono);font-weight:700;color:{cor_hex};">{conf_percent:.1f}%</span></div>
                         <div class="status-main" style="color:{cor_hex};">{estado}</div>
                         <span class="status-action" style="color:{cor_hex};border-color:{sev_bdr[sev]};background:rgba(0,0,0,0.2);">▶ {acao}</span>
                     </div>
@@ -522,9 +529,10 @@ else:
 
             with col_g:
                 is_clim = any(f in fruta.lower() for f in ["maca","banana"])
-                lim_min = thresholds["clim_fresco"] if is_clim else thresholds["nclim_firme"]
-                lim_max = thresholds["clim_maduro"] if is_clim else thresholds["nclim_risco"]
+                lim_podre = thresholds["clim_podre"] if is_clim else thresholds["nclim_podre"]
+                lim_maduro = thresholds["clim_maduro"] if is_clim else thresholds["nclim_risco"]
 
+                # Gráfico ajustado: Menor Resistência (Esq) = Mais Gases = Perigo (Vermelho)
                 fig_gauge = go.Figure(go.Indicator(
                     mode="gauge+number", value=voc,
                     number={'suffix':" Ω",'font':{'size':28,'color':'#E8EEF8','family':'Space Mono'}},
@@ -534,9 +542,9 @@ else:
                         'bar':{'color':cor_hex,'thickness':0.22},
                         'bgcolor':"#0E1420",'borderwidth':1,'bordercolor':"#1E2D45",
                         'steps':[
-                            {'range':[0,lim_min],       'color':"rgba(255,68,85,0.1)"},
-                            {'range':[lim_min,lim_max], 'color':"rgba(255,184,0,0.1)"},
-                            {'range':[lim_max,25000],   'color':"rgba(0,229,180,0.1)"}
+                            {'range':[0, lim_podre],          'color':"rgba(255,68,85,0.15)"},  # Perigo
+                            {'range':[lim_podre, lim_maduro], 'color':"rgba(255,184,0,0.15)"},  # Atenção
+                            {'range':[lim_maduro, 25000],     'color':"rgba(0,229,180,0.15)"}   # Fresco
                         ],
                         'threshold':{'line':{'color':cor_hex,'width':2},'thickness':0.8,'value':voc}
                     }
@@ -546,16 +554,16 @@ else:
 
             st.markdown("<br>", unsafe_allow_html=True)
             c1,c2,c3,c4 = st.columns(4)
-            for col, (lbl, val, unit) in zip([c1,c2,c3,c4], [
-                ("IA CONFIDENCE", f"{conf*100 if conf<=1 else conf:.1f}", "%"),
-                ("TEMPERATURA",   f"{temp:.1f}", "°C"),
-                ("HUMIDADE",      f"{hum:.1f}",  "%"),
-                ("LATÊNCIA MQTT", "124",         "ms"),
+            for col, (lbl, val, unit, color) in zip([c1,c2,c3,c4], [
+                ("CONFIANÇA SISTEMA", system_conf_display, "", "#E8EEF8"),
+                ("MODO DE FUSÃO",     fusion_mode,         "", fusion_color),
+                ("TEMPERATURA",       f"{temp:.1f}",       "°C", "#E8EEF8"),
+                ("HUMIDADE",          f"{hum:.1f}",        "%", "#E8EEF8"),
             ]):
                 col.markdown(f"""
                     <div class="metric-card">
                         <div class="metric-label"><span class="metric-dot"></span>{lbl}</div>
-                        <div class="metric-value">{val}<span class="metric-unit">{unit}</span></div>
+                        <div class="metric-value" style="color:{color}; font-size:1.5rem;">{val}<span class="metric-unit">{unit}</span></div>
                     </div>
                 """, unsafe_allow_html=True)
 
@@ -662,8 +670,8 @@ else:
                             hovertemplate=f'<b>%{{x}}</b><br>{formatar_nome(f_nome)}: %{{y:.0f}} Ω<extra></extra>'
                         ))
 
-                    fig_voc.add_hline(y=thresholds["clim_fresco"], line_dash="dot", line_color="rgba(255,184,0,0.35)", annotation_text="Limiar Maduro (Clim)", annotation_font_color="#FFB800", annotation_font_size=10)
-                    fig_voc.add_hline(y=thresholds["clim_maduro"]*0.76, line_dash="dot", line_color="rgba(255,68,85,0.35)", annotation_text="Limiar Crítico (Clim)", annotation_font_color="#FF4455", annotation_font_size=10)
+                    fig_voc.add_hline(y=thresholds["clim_maduro"], line_dash="dot", line_color="rgba(0,229,180,0.35)", annotation_text="Limiar Verde/Maduro", annotation_font_color="#00E5B4", annotation_font_size=10)
+                    fig_voc.add_hline(y=thresholds["clim_podre"], line_dash="dot", line_color="rgba(255,68,85,0.35)", annotation_text="Limiar Maduro/Podre", annotation_font_color="#FF4455", annotation_font_size=10)
 
                     layout_voc = {**PLOT_LAYOUT, "height": 340, "yaxis_title": "Resistência (Ω)"}
                     fig_voc.update_layout(**layout_voc)
@@ -754,18 +762,18 @@ else:
             col_a, col_b = st.columns(2)
             with col_a:
                 st.markdown("<div class='calib-group-title'>🍌 Fenologia Climatérica (Banana / Maçã)</div>", unsafe_allow_html=True)
-                clim_f = st.slider("Verde → Maduro",  10000, 15000, thresholds["clim_fresco"])
-                clim_m = st.slider("Maduro → Podre",  15000, 20000, thresholds["clim_maduro"])
+                clim_m = st.slider("Limiar Verde / Maduro (Ω)", 15000, 20000, thresholds["clim_maduro"])
+                clim_p = st.slider("Limiar Maduro / Podre (Ω)", 10000, 15000, thresholds["clim_podre"])
             with col_b:
                 st.markdown("<div class='calib-group-title'>🍊 Fenologia Não-Climatérica (Laranja)</div>", unsafe_allow_html=True)
-                nclim_f = st.slider("Firme → Risco",     10000, 14000, thresholds["nclim_firme"])
-                nclim_r = st.slider("Risco → Degradada", 14000, 18000, thresholds["nclim_risco"])
+                nclim_r = st.slider("Limiar Firme / Risco (Ω)", 14000, 18000, thresholds["nclim_risco"])
+                nclim_p = st.slider("Limiar Risco / Podre (Ω)", 10000, 14000, thresholds["nclim_podre"])
             st.markdown("<br>", unsafe_allow_html=True)
             submitted = st.form_submit_button("Aplicar Parâmetros →", use_container_width=True, type="primary")
             if submitted:
                 novos_limites = {
-                    "clim_fresco": clim_f, "clim_maduro": clim_m,
-                    "nclim_firme": nclim_f, "nclim_risco": nclim_r
+                    "clim_maduro": clim_m, "clim_podre": clim_p,
+                    "nclim_risco": nclim_r, "nclim_podre": nclim_p
                 }
                 st.session_state.thresholds = novos_limites
                 guardar_calibracao(novos_limites)
