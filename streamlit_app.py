@@ -834,10 +834,10 @@ else:
             col_a, col_b = st.columns(2)
             with col_a:
                 st.markdown("<div class='calib-group-title'>🍌 Fruta Climatérica (Banana / Maçã)</div>", unsafe_allow_html=True)
-                clim_limiar = st.slider("Limiar Fresca / Senescência (Ω)", 19000, 38000, thresholds.get("clim_limiar", 28500))
+                clim_limiar = st.slider("Limiar Fresca / Senescência (Ω)", 19000, 38000, thresholds.get("clim_limiar", 28500), key="slider_clim")
             with col_b:
                 st.markdown("<div class='calib-group-title'>🍊 Fruta Não-Climatérica (Laranja)</div>", unsafe_allow_html=True)
-                nclim_limiar = st.slider("Limiar Fresca / Senescência (Ω)", 19000, 38000, thresholds.get("nclim_limiar", 28500))
+                nclim_limiar = st.slider("Limiar Fresca / Senescência (Ω)", 19000, 38000, thresholds.get("nclim_limiar", 28500), key="slider_nclim")
             
             st.markdown("<br>", unsafe_allow_html=True)
             submitted = st.form_submit_button("Aplicar Parâmetros →", use_container_width=True, type="primary")
