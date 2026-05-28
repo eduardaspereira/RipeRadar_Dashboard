@@ -97,14 +97,13 @@ def fetch_ultima_reposicao():
         return None
 
 def fetch_logs_operadores():
-    """Vai buscar os últimos registos brutos de login e operações RFID (Sem Pivot para não perder dados)"""
+    """Vai buscar os últimos registos brutos de login e operações RFID"""
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
         query = f'''
         from(bucket: "{INFLUX_BUCKET}")
           |> range(start: -7d)
           |> filter(fn: (r) => r["_measurement"] == "rfid_login" or r["_measurement"] == "rfid_operacoes")
-          |> keep(columns: ["_time", "_measurement", "_value"])
           |> sort(columns: ["_time"], desc: true)
         '''
         df = client.query_api().query_data_frame(query)
@@ -297,6 +296,7 @@ def fetch_live_data():
         df = client.query_api().query_data_frame(query)
         if isinstance(df, list): df = pd.concat(df)
         if isinstance(df, pd.DataFrame) and not df.empty:
+            # Força tudo a ficar na hora local de Portugal para garantir cálculos corretos
             df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
             return df
         return pd.DataFrame()
@@ -709,9 +709,6 @@ else:
                                 
                                 ultima_leitura = g_fruta.iloc[-1]
                                 hora_ultima = ultima_leitura["_time"].strftime("%H:%M")
-                                
-                                is_degrading = ultima_leitura["voc_gas"] < g_fruta["voc_gas"].iloc[0]
-                                trend_c  = "#FF4455" if is_degrading else "#00E5B4"
                                 trend = f"🕒 {hora_ultima}"
 
                                 st.markdown(f"""
@@ -721,7 +718,7 @@ else:
                                             <span style="font-family:var(--mono);font-size:0.68rem;color:var(--txt-muted);">PRODUTO&nbsp;</span>
                                             <span style="font-family:var(--mono);font-size:0.82rem;color:var(--txt);font-weight:700;text-transform:uppercase;">{formatar_nome(fruta_id)}</span>
                                         </div>
-                                        <span style="font-family:var(--mono);font-weight:700;font-size:0.85rem;color:{trend_c};">{trend}</span>
+                                        <span style="font-family:var(--mono);font-weight:700;font-size:0.85rem;color:var(--txt);">{trend}</span>
                                     </div>
                                     <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
                                         <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{pior['estado']}</span>
@@ -800,7 +797,7 @@ else:
             else:
                 for _, row in df_logs.iterrows():
                     medida = row.get('_measurement')
-                    valor = str(row.get('_value', ''))
+                    valor = str(row.get('_value', '')).strip('"').strip()
                     data_str = row['_time'].strftime("%d/%m/%Y")
                     hora_str = row['_time'].strftime("%H:%M:%S")
                     
