@@ -75,7 +75,26 @@ def verificar_login_rfid():
                     st.rerun()
     except Exception:
         pass 
-
+def fetch_ultima_reposicao():
+    """Vai à base de dados procurar a que horas foi passada a Tag de Nova Carga"""
+    try:
+        client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
+        query = f'''
+        from(bucket: "{INFLUX_BUCKET}")
+          |> range(start: -30d)
+          |> filter(fn: (r) => r["_measurement"] == "rfid_operacoes")
+          |> filter(fn: (r) => r["_field"] == "acao")
+          |> filter(fn: (r) => r["_value"] == "nova_carga")
+          |> last()
+        '''
+        result = client.query_api().query(query)
+        for table in result:
+            for record in table.records:
+                return record.get_time() # Retorna a data/hora exata do scan
+        return None
+    except:
+        return None
+    
 def logout():
     st.session_state.logado = False
     st.session_state.cargo = ""
@@ -412,10 +431,29 @@ else:
     else:
         chip_html = '<span class="offline-chip"><span class="offline-dot"></span>HISTORIC (NO DATA)</span>'
 
+    # Verifica a última vez que a Tag de Rastreabilidade foi passada
+    ultima_rep = fetch_ultima_reposicao()
+    lote_html = ""
+    if ultima_rep:
+        agora_utc = datetime.now(timezone.utc)
+        horas_passadas = int((agora_utc - ultima_rep).total_seconds() / 3600)
+        dias_passados = horas_passadas // 24
+        
+        if dias_passados > 0:
+            tempo_str = f"Há {dias_passados} dias"
+        elif horas_passadas > 0:
+            tempo_str = f"Há {horas_passadas}h"
+        else:
+            minutos = int((agora_utc - ultima_rep).total_seconds() / 60)
+            tempo_str = f"Há {minutos} min"
+            
+        lote_html = f"<div style='background:rgba(0,144,255,0.1); border:1px solid rgba(0,144,255,0.3); color:#0090FF; padding:4px 12px; border-radius:999px; font-family:var(--mono); font-size:0.7rem; font-weight:700; letter-spacing:0.5px;'>📦 LOTE RENOVADO: {tempo_str}</div>"
+
     st.markdown(f"""
-        <div class="page-header">
+        <div class="page-header" style="align-items: center;">
             <span class="page-title">Centro de Comando Analítico</span>
             <span class="page-badge">RipeRadar OS</span>
+            {lote_html}
             <span style="flex:1;"></span>
             {chip_html}
         </div>
@@ -634,14 +672,14 @@ else:
 
                             badge_html = f"<span class='tl-badge' style='color:#FF4455;border-color:rgba(255,68,85,0.3);'>⬤ {n_crit_dia} críticos</span>" if n_crit_dia > 0 else ""
 
+                            # Removemos as quebras de linha em branco dentro desta formatação
                             st.markdown(f"""
                             <div class="tl-item">
                                 <div class="tl-dot {dot_cls}"></div>
                                 <div class="tl-time">📅 {dia_label.upper()}</div>
                                 <div class="tl-body">
                                     <div style="display:flex;align-items:center;gap:10px;margin-bottom:14px;">
-                                        <span style="font-weight:700;color:{cor_dia};">{len(grupo_dia)} leituras destacadas</span>
-                                        {badge_html}
+                                        <span style="font-weight:700;color:{cor_dia};">{len(grupo_dia)} leituras destacadas</span>{badge_html}
                                     </div>
                             """, unsafe_allow_html=True)
 
