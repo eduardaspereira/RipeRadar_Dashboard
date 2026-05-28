@@ -744,7 +744,7 @@ else:
                                 trend_c  = "#FF4455" if "degradar" in trend else "#00E5B4"
 
                                 # Nova secção gerada dinamicamente com as horas precisas de cada registo
-                                lista_horas_html = "".join([f"<span style='background:rgba(232,238,248,0.05); padding:2px 6px; border-radius:4px; font-family:var(--mono); color:var(--txt); font-size:0.75rem;'>⏱️ {t.astimezone().strftime('%H:%M:%S')}</span> " for t in g_fruta["_time"]])
+                                lista_horas_html = "".join([f"<span style='background:rgba(232,238,248,0.05); padding:2px 6px; border-radius:4px; font-family:var(--mono); color:var(--txt); font-size:0.75rem;'>⏱️ {t.tz_convert('Europe/Lisbon').strftime('%H:%M:%S')}</span> " for t in g_fruta["_time"]])
 
                                 st.markdown(f"""
                                 <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;">
