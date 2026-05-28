@@ -254,7 +254,7 @@ div[data-baseweb="select"] > div { background: var(--surface) !important; border
 """, unsafe_allow_html=True)
 
 # ══════════════════════════════════════════════════════════════
-#  THRESHOLDS & FUNÇÕES BASE (COM JSON) - AGORA COM A LÓGICA CORRETA
+#  THRESHOLDS & FUNÇÕES BASE (Lógica de Atualização Forçada)
 # ══════════════════════════════════════════════════════════════
 def carregar_calibracao():
     limites_predefinidos = {
@@ -277,8 +277,12 @@ def guardar_calibracao(limites):
     with open("calibracao.json", "w") as f:
         json.dump(limites, f)
 
+# Forçar a limpeza de memórias velhas do Streamlit State
 if 'thresholds' not in st.session_state:
     st.session_state.thresholds = carregar_calibracao()
+else:
+    if "clim_podre" not in st.session_state.thresholds:
+        st.session_state.thresholds = carregar_calibracao()
 
 thresholds = st.session_state.thresholds
 
@@ -334,14 +338,21 @@ def processar_decisao(classe, voc):
     Decisão baseada na Lógica Invertida do MOS (Alta Resistência = Menos Gás = Fresco)
     """
     t = st.session_state.thresholds
+    
+    # Fallbacks de segurança absolutos
+    clim_maduro = t.get("clim_maduro", 17000)
+    clim_podre  = t.get("clim_podre", 13000)
+    nclim_risco = t.get("nclim_risco", 16000)
+    nclim_podre = t.get("nclim_podre", 13000)
+
     if any(f in str(classe).lower() for f in ["maca", "apple", "banana"]):
-        if voc > t["clim_maduro"]:      return "VERDE / FRESCO",      "#00E5B4", "PRATELEIRA",          "success"
-        elif voc >= t["clim_podre"]:    return "MADURO / ÓTIMO",      "#FFB800", "PROMOÇÃO IMEDIATA",   "warning"
-        else:                           return "PODRE / SENESCÊNCIA", "#FF4455", "RETIRAR DE IMEDIATO", "danger"
+        if voc > clim_maduro:      return "VERDE / FRESCO",      "#00E5B4", "PRATELEIRA",          "success"
+        elif voc >= clim_podre:    return "MADURO / ÓTIMO",      "#FFB800", "PROMOÇÃO IMEDIATA",   "warning"
+        else:                      return "PODRE / SENESCÊNCIA", "#FF4455", "RETIRAR DE IMEDIATO", "danger"
     else:
-        if voc > t["nclim_risco"]:      return "FIRME / BOA",         "#00E5B4", "CONFORME",            "success"
-        elif voc >= t["nclim_podre"]:   return "RISCO DE DEGRADAÇÃO", "#FFB800", "VIGILÂNCIA REFORÇADA","warning"
-        else:                           return "DEGRADADA",           "#FF4455", "REJEITAR LOTE",       "danger"
+        if voc > nclim_risco:      return "FIRME / BOA",         "#00E5B4", "CONFORME",            "success"
+        elif voc >= nclim_podre:   return "RISCO DE DEGRADAÇÃO", "#FFB800", "VIGILÂNCIA REFORÇADA","warning"
+        else:                      return "DEGRADADA",           "#FF4455", "REJEITAR LOTE",       "danger"
 
 PLOT_LAYOUT = dict(
     paper_bgcolor='#0E1420', plot_bgcolor='#0E1420', margin=dict(l=10, r=10, t=30, b=10),
@@ -537,8 +548,8 @@ else:
 
             with col_g:
                 is_clim = any(f in fruta.lower() for f in ["maca","banana"])
-                lim_podre = thresholds["clim_podre"] if is_clim else thresholds["nclim_podre"]
-                lim_maduro = thresholds["clim_maduro"] if is_clim else thresholds["nclim_risco"]
+                lim_podre = thresholds.get("clim_podre", 13000) if is_clim else thresholds.get("nclim_podre", 13000)
+                lim_maduro = thresholds.get("clim_maduro", 17000) if is_clim else thresholds.get("nclim_risco", 16000)
 
                 # Gráfico ajustado: Menor Resistência (Esq) = Mais Gases = Perigo (Vermelho)
                 fig_gauge = go.Figure(go.Indicator(
@@ -678,8 +689,9 @@ else:
                             hovertemplate=f'<b>%{{x}}</b><br>{formatar_nome(f_nome)}: %{{y:.0f}} Ω<extra></extra>'
                         ))
 
-                    fig_voc.add_hline(y=thresholds["clim_maduro"], line_dash="dot", line_color="rgba(0,229,180,0.35)", annotation_text="Limiar Verde/Maduro", annotation_font_color="#00E5B4", annotation_font_size=10)
-                    fig_voc.add_hline(y=thresholds["clim_podre"], line_dash="dot", line_color="rgba(255,68,85,0.35)", annotation_text="Limiar Maduro/Podre", annotation_font_color="#FF4455", annotation_font_size=10)
+                    # Utiliza `.get()` no gráfico também para total segurança
+                    fig_voc.add_hline(y=thresholds.get("clim_maduro", 17000), line_dash="dot", line_color="rgba(0,229,180,0.35)", annotation_text="Limiar Verde/Maduro", annotation_font_color="#00E5B4", annotation_font_size=10)
+                    fig_voc.add_hline(y=thresholds.get("clim_podre", 13000), line_dash="dot", line_color="rgba(255,68,85,0.35)", annotation_text="Limiar Maduro/Podre", annotation_font_color="#FF4455", annotation_font_size=10)
 
                     layout_voc = {**PLOT_LAYOUT, "height": 340, "yaxis_title": "Resistência (Ω)"}
                     fig_voc.update_layout(**layout_voc)
@@ -770,12 +782,12 @@ else:
             col_a, col_b = st.columns(2)
             with col_a:
                 st.markdown("<div class='calib-group-title'>🍌 Fenologia Climatérica (Banana / Maçã)</div>", unsafe_allow_html=True)
-                clim_m = st.slider("Limiar Verde / Maduro (Ω)", 15000, 20000, thresholds["clim_maduro"])
-                clim_p = st.slider("Limiar Maduro / Podre (Ω)", 10000, 15000, thresholds["clim_podre"])
+                clim_m = st.slider("Limiar Verde / Maduro (Ω)", 15000, 20000, thresholds.get("clim_maduro", 17000))
+                clim_p = st.slider("Limiar Maduro / Podre (Ω)", 10000, 15000, thresholds.get("clim_podre", 13000))
             with col_b:
                 st.markdown("<div class='calib-group-title'>🍊 Fenologia Não-Climatérica (Laranja)</div>", unsafe_allow_html=True)
-                nclim_r = st.slider("Limiar Firme / Risco (Ω)", 14000, 18000, thresholds["nclim_risco"])
-                nclim_p = st.slider("Limiar Risco / Podre (Ω)", 10000, 14000, thresholds["nclim_podre"])
+                nclim_r = st.slider("Limiar Firme / Risco (Ω)", 14000, 18000, thresholds.get("nclim_risco", 16000))
+                nclim_p = st.slider("Limiar Risco / Podre (Ω)", 10000, 14000, thresholds.get("nclim_podre", 13000))
             st.markdown("<br>", unsafe_allow_html=True)
             submitted = st.form_submit_button("Aplicar Parâmetros →", use_container_width=True, type="primary")
             if submitted:
