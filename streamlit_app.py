@@ -277,7 +277,6 @@ def guardar_calibracao(limites):
     with open("calibracao.json", "w") as f:
         json.dump(limites, f)
 
-# Forçar a limpeza de memórias velhas do Streamlit State
 if 'thresholds' not in st.session_state:
     st.session_state.thresholds = carregar_calibracao()
 else:
@@ -292,14 +291,65 @@ def formatar_nome(raw_name):
     return str(raw_name).replace('_', ' ').title()
 
 def obter_cor_estado(raw_name):
-    """Atribui cor baseada na keyword do estado da fruta"""
     nome_min = str(raw_name).lower()
-    if 'fresc' in nome_min or 'firm' in nome_min: return "#00E5B4" # Verde
-    if 'madur' in nome_min or 'risco' in nome_min: return "#FFB800" # Amarelo
-    if 'podre' in nome_min or 'degrad' in nome_min: return "#FF4455" # Vermelho
-    return "#8BA0BC" # Cinza Azulado base
+    if any(x in nome_min for x in ["fresc", "firm", "verd"]): return "#00E5B4"
+    if any(x in nome_min for x in ["madur", "risco", "otim"]): return "#FFB800"
+    if any(x in nome_min for x in ["podr", "degrad", "senesc"]): return "#FF4455"
+    return "#8BA0BC"
 
 meses_pt = {1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6: "Junho", 7: "Julho", 8: "Agosto", 9: "Setembro", 10: "Outubro", 11: "Novembro", 12: "Dezembro"}
+
+# ── FUNÇÕES DE LATE FUSION LOCAL (PARA OS SLIDERS FUNCIONAREM) ──
+def calcular_late_fusion_local(row_or_dict):
+    """Refaz a Late Fusion baseando-se nos valores brutos e na Calibração atual do Dashboard"""
+    label = str(row_or_dict.get('label_camara', row_or_dict.get('classe_dominante', 'desconhecido'))).lower()
+    conf = float(row_or_dict.get('confianca', 1.0))
+    voc = float(row_or_dict.get('voc_gas', 0.0))
+    
+    fruto = "desconhecido"
+    for f in ["banana", "maca", "laranja"]:
+        if f in label:
+            fruto = f
+            break
+            
+    t = st.session_state.thresholds
+    clim_maduro = t.get("clim_maduro", 17000)
+    clim_podre  = t.get("clim_podre", 13000)
+    nclim_risco = t.get("nclim_risco", 16000)
+    nclim_podre = t.get("nclim_podre", 13000)
+    
+    nicla_state = "desconhecido"
+    if fruto in ["banana", "maca"]:
+        if voc > clim_maduro: nicla_state = "fresco"
+        elif voc >= clim_podre: nicla_state = "maduro"
+        else: nicla_state = "podre"
+    elif fruto == "laranja":
+        if voc > nclim_risco: nicla_state = "firme"
+        elif voc >= nclim_podre: nicla_state = "risco"
+        else: nicla_state = "degradada"
+        
+    if conf < 0.60 and fruto != "desconhecido":
+        return f"{fruto}_{nicla_state}", "VOC OVERRIDE ⚡"
+    else:
+        return label, "VISÃO + VOC 👁️"
+
+def processar_decisao(classe_fused):
+    """
+    Retorna os textos e cores FINAIS da interface, 
+    baseando-se TOTALMENTE na string que já foi alvo de fusão.
+    Isso impede contradições!
+    """
+    c = str(classe_fused).lower()
+    is_clim = any(f in c for f in ["maca", "apple", "banana"])
+    
+    if any(x in c for x in ["fresc", "firm", "verd"]):
+        return ("VERDE / FRESCO" if is_clim else "FIRME / BOA", "#00E5B4", "PRATELEIRA" if is_clim else "CONFORME", "success")
+    elif any(x in c for x in ["madur", "risco", "otim"]):
+        return ("MADURO / ÓTIMO" if is_clim else "RISCO DE DEGRADAÇÃO", "#FFB800", "PROMOÇÃO IMEDIATA" if is_clim else "VIGILÂNCIA REFORÇADA", "warning")
+    elif any(x in c for x in ["podr", "degrad", "senesc"]):
+        return ("PODRE / SENESCÊNCIA" if is_clim else "DEGRADADA", "#FF4455", "RETIRAR DE IMEDIATO" if is_clim else "REJEITAR LOTE", "danger")
+    else:
+        return ("DESCONHECIDO", "#8BA0BC", "AGUARDAR DADOS", "warning")
 
 # ── LEITURA REAL DA BASE DE DADOS (INFLUXDB) ──
 def fetch_live_data():
@@ -310,12 +360,10 @@ def fetch_live_data():
                   f' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")')
         df = client.query_api().query_data_frame(query)
         
-        # Ignorar o index antigo ajuda a evitar conflitos na concatenação
         if isinstance(df, list): df = pd.concat(df, ignore_index=True)
         
         if isinstance(df, pd.DataFrame) and not df.empty:
             df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
-            # Forçar a ordenação cronológica crescente
             df = df.sort_values(by='_time', ascending=True).reset_index(drop=True)
             return df
         return pd.DataFrame()
@@ -335,33 +383,11 @@ def fetch_history_data(dias):
         
         if isinstance(df, pd.DataFrame) and not df.empty:
             df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
-            # Forçar a ordenação cronológica crescente
             df = df.sort_values(by='_time', ascending=True).reset_index(drop=True)
             return df
         return pd.DataFrame()
     except:
         return pd.DataFrame()
-
-def processar_decisao(classe, voc):
-    """
-    Decisão baseada na Lógica Invertida do MOS (Alta Resistência = Menos Gás = Fresco)
-    """
-    t = st.session_state.thresholds
-    
-    # Fallbacks de segurança absolutos
-    clim_maduro = t.get("clim_maduro", 17000)
-    clim_podre  = t.get("clim_podre", 13000)
-    nclim_risco = t.get("nclim_risco", 16000)
-    nclim_podre = t.get("nclim_podre", 13000)
-
-    if any(f in str(classe).lower() for f in ["maca", "apple", "banana"]):
-        if voc > clim_maduro:      return "VERDE / FRESCO",      "#00E5B4", "PRATELEIRA",          "success"
-        elif voc >= clim_podre:    return "MADURO / ÓTIMO",      "#FFB800", "PROMOÇÃO IMEDIATA",   "warning"
-        else:                      return "PODRE / SENESCÊNCIA", "#FF4455", "RETIRAR DE IMEDIATO", "danger"
-    else:
-        if voc > nclim_risco:      return "FIRME / BOA",         "#00E5B4", "CONFORME",            "success"
-        elif voc >= nclim_podre:   return "RISCO DE DEGRADAÇÃO", "#FFB800", "VIGILÂNCIA REFORÇADA","warning"
-        else:                      return "DEGRADADA",           "#FF4455", "REJEITAR LOTE",       "danger"
 
 PLOT_LAYOUT = dict(
     paper_bgcolor='#0E1420', plot_bgcolor='#0E1420', margin=dict(l=10, r=10, t=30, b=10),
@@ -521,42 +547,40 @@ else:
 
     with tab_dash:
         if is_live:
-            latest = df_live.iloc[-1]
+            latest = df_live.iloc[-1].to_dict()
             voc    = float(latest.get('voc_gas', 0.0))
-            fruta  = str(latest.get('classe_dominante', 'Desconhecido'))
-            conf   = float(latest.get('confianca', 0.0))
+            conf   = float(latest.get('confianca', 1.0))
             temp   = float(latest.get('temp', 0.0))
             hum    = float(latest.get('hum', 0.0))
 
-            estado, cor_hex, acao, sev = processar_decisao(fruta, voc)
+            # 1. Faz a fusão calculando localmente (para a calibração ser dinâmica)
+            decisao_final, fusion_mode = calcular_late_fusion_local(latest)
+            
+            # 2. Constrói o texto e cor grandes baseando-se RIGOROSAMENTE na decisão já fundida
+            estado, cor_hex, acao, sev = processar_decisao(decisao_final)
+            
             sev_bg  = {"success":"rgba(0,229,180,0.06)", "warning":"rgba(255,184,0,0.06)", "danger":"rgba(255,68,85,0.06)"}
             sev_bdr = {"success":"rgba(0,229,180,0.2)",  "warning":"rgba(255,184,0,0.2)",  "danger":"rgba(255,68,85,0.2)"}
 
-            # Lógica do Estado da Fusão (Late Fusion Override)
+            # 3. Lógica para as Cores de Fusão
             conf_percent = conf * 100 if conf <= 1 else conf
-            if conf_percent < 60:
-                fusion_mode = "VOC OVERRIDE ⚡"
-                fusion_color = "#FFB800"
-                system_conf_display = "99.9%"
-            else:
-                fusion_mode = "VISÃO + VOC 👁️"
-                fusion_color = "#00E5B4"
-                system_conf_display = f"{conf_percent:.1f}%"
+            fusion_color = "#FFB800" if "OVERRIDE" in fusion_mode else "#00E5B4"
+            system_conf_display = "99.9%" if "OVERRIDE" in fusion_mode else f"{conf_percent:.1f}%"
 
             col_s, col_g = st.columns([1.6, 1])
             with col_s:
                 st.markdown(f"""
-                    <div class="status-banner" style="background:{sev_bg[sev]};border-color:{sev_bdr[sev]};">
+                    <div class="status-banner" style="background:{sev_bg.get(sev, 'rgba(139,160,188,0.06)')};border-color:{sev_bdr.get(sev, 'rgba(139,160,188,0.2)')};">
                         <div class="status-accent-bar" style="background:{cor_hex};"></div>
                         <div class="status-label">Alvo Identificado</div>
-                        <div class="status-target">🎯 {formatar_nome(fruta)} &nbsp;·&nbsp; IA Confiança Base: <span style="font-family:var(--mono);font-weight:700;color:{cor_hex};">{conf_percent:.1f}%</span></div>
+                        <div class="status-target">🎯 {formatar_nome(decisao_final)} &nbsp;·&nbsp; IA Confiança Base: <span style="font-family:var(--mono);font-weight:700;color:{cor_hex};">{conf_percent:.1f}%</span></div>
                         <div class="status-main" style="color:{cor_hex};">{estado}</div>
-                        <span class="status-action" style="color:{cor_hex};border-color:{sev_bdr[sev]};background:rgba(0,0,0,0.2);">▶ {acao}</span>
+                        <span class="status-action" style="color:{cor_hex};border-color:{sev_bdr.get(sev, 'rgba(139,160,188,0.2)')};background:rgba(0,0,0,0.2);">▶ {acao}</span>
                     </div>
                 """, unsafe_allow_html=True)
 
             with col_g:
-                is_clim = any(f in fruta.lower() for f in ["maca","banana"])
+                is_clim = any(f in decisao_final.lower() for f in ["maca","banana"])
                 lim_podre = thresholds.get("clim_podre", 13000) if is_clim else thresholds.get("nclim_podre", 13000)
                 lim_maduro = thresholds.get("clim_maduro", 17000) if is_clim else thresholds.get("nclim_risco", 16000)
 
@@ -631,9 +655,16 @@ else:
             with col_f1:
                 periodo = st.selectbox("Período", ["Últimos 7 dias","Últimos 30 dias","Últimos 90 dias"], index=1)
             dias_map = {"Últimos 7 dias":7, "Últimos 30 dias":30, "Últimos 90 dias":90}
+            
+            # Fetch data and apply local fusion so history obeys the calibration sliders!
             df_hist_real = fetch_history_data(dias_map[periodo])
-
-            unique_raw_classes = df_hist_real['classe_dominante'].dropna().unique().tolist() if not df_hist_real.empty and 'classe_dominante' in df_hist_real.columns else []
+            if not df_hist_real.empty and 'classe_dominante' in df_hist_real.columns and 'voc_gas' in df_hist_real.columns:
+                df_hist_real = df_hist_real.dropna(subset=['voc_gas', 'classe_dominante']).copy()
+                df_hist_real['classe_dominante'] = df_hist_real.apply(lambda r: calcular_late_fusion_local(r)[0], axis=1)
+                unique_raw_classes = df_hist_real['classe_dominante'].unique().tolist()
+            else:
+                unique_raw_classes = []
+                
             options_produtos = ["Todos"] + sorted(unique_raw_classes)
 
             with col_f2:
@@ -647,10 +678,10 @@ else:
                     format_func=lambda x: {"success":"✅ Normais","warning":"⚠️ Atenção","danger":"🔴 Críticos"}[x]
                 )
             
-            if df_hist_real.empty or 'classe_dominante' not in df_hist_real.columns or 'voc_gas' not in df_hist_real.columns:
+            if df_hist_real.empty:
                 st.warning("📊 Não existem dados reais suficientes no InfluxDB para gerar a análise histórica neste período.")
             else:
-                df_periodo = df_hist_real.dropna(subset=['voc_gas', 'classe_dominante']).copy()
+                df_periodo = df_hist_real.copy()
                 
                 if fruta_filtro != "Todos":
                     df_periodo = df_periodo[df_periodo["classe_dominante"] == fruta_filtro]
@@ -658,7 +689,8 @@ else:
                 if df_periodo.empty:
                     st.info("Sem leituras reais para a seleção atual.")
                 else:
-                    resultados = df_periodo.apply(lambda r: processar_decisao(r['classe_dominante'], r['voc_gas']), axis=1)
+                    # Aplica as cores/textos com base na string já fundida
+                    resultados = df_periodo['classe_dominante'].apply(processar_decisao)
                     df_periodo['estado'] = [r[0] for r in resultados]
                     df_periodo['cor'] = [r[1] for r in resultados]
                     df_periodo['acao'] = [r[2] for r in resultados]
@@ -698,7 +730,6 @@ else:
                             hovertemplate=f'<b>%{{x}}</b><br>{formatar_nome(f_nome)}: %{{y:.0f}} Ω<extra></extra>'
                         ))
 
-                    # Utiliza `.get()` no gráfico também para total segurança
                     fig_voc.add_hline(y=thresholds.get("clim_maduro", 17000), line_dash="dot", line_color="rgba(0,229,180,0.35)", annotation_text="Limiar Verde/Maduro", annotation_font_color="#00E5B4", annotation_font_size=10)
                     fig_voc.add_hline(y=thresholds.get("clim_podre", 13000), line_dash="dot", line_color="rgba(255,68,85,0.35)", annotation_text="Limiar Maduro/Podre", annotation_font_color="#FF4455", annotation_font_size=10)
 
