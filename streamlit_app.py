@@ -319,15 +319,28 @@ def fetch_history_data(dias):
 
 def processar_decisao(classe, voc):
     t = st.session_state.thresholds
+    
+    # FRUTA CLIMATÉRICA
     if any(f in str(classe).lower() for f in ["maca", "apple", "banana"]):
-        if voc < t["clim_fresco"]:    return "VERDE / FRESCO",      "#00E5B4", "PRATELEIRA",          "success"
-        elif voc <= t["clim_maduro"]: return "MADURO / ÓTIMO",      "#FFB800", "PROMOÇÃO IMEDIATA",   "warning"
-        else:                          return "PODRE / SENESCÊNCIA",  "#FF4455", "RETIRAR DE IMEDIATO", "danger"
+        # Resistência ALTA (ex: > 17000) = Sem gases = Fresca
+        if voc >= t["clim_maduro"]:    
+            return "VERDE / FRESCO", "#00E5B4", "PRATELEIRA", "success"
+        # Resistência MÉDIA (ex: entre 13000 e 17000) = Alguns gases = Madura
+        elif voc >= t["clim_fresco"]:  
+            return "MADURO / ÓTIMO", "#FFB800", "PROMOÇÃO IMEDIATA", "warning"
+        # Resistência BAIXA (ex: < 13000) = Muitos gases = Podre
+        else:                          
+            return "PODRE / SENESCÊNCIA", "#FF4455", "RETIRAR DE IMEDIATO", "danger"
+            
+    # FRUTA NÃO-CLIMATÉRICA
     else:
-        if voc < t["nclim_firme"]:    return "FIRME / BOA",          "#00E5B4", "CONFORME",            "success"
-        elif voc <= t["nclim_risco"]: return "RISCO DE DEGRADAÇÃO",  "#FFB800", "VIGILÂNCIA REFORÇADA","warning"
-        else:                          return "DEGRADADA",            "#FF4455", "REJEITAR LOTE",       "danger"
-
+        if voc >= t["nclim_risco"]:    
+            return "FIRME / BOA", "#00E5B4", "CONFORME", "success"
+        elif voc >= t["nclim_firme"]:  
+            return "RISCO DE DEGRADAÇÃO", "#FFB800", "VIGILÂNCIA REFORÇADA", "warning"
+        else:                          
+            return "DEGRADADA", "#FF4455", "REJEITAR LOTE", "danger"
+            
 PLOT_LAYOUT = dict(
     paper_bgcolor='#0E1420', plot_bgcolor='#0E1420', margin=dict(l=10, r=10, t=30, b=10),
     hovermode="x unified", font=dict(family="DM Sans", color="#8BA0BC"),
