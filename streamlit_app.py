@@ -192,7 +192,6 @@ h1,h2,h3,h4 { font-family: var(--sans); }
 .section-header h3 { font-size: 1rem; font-weight: 600; color: var(--txt); margin: 0; letter-spacing: 0.3px; }
 .section-divider { flex: 1; height: 1px; background: var(--border); }
 
-/* Novos estilos para os Notif-Cards (Feed de Logs) */
 .notif-card { display: flex; align-items: center; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; transition: border-color 0.2s, transform 0.2s; }
 .notif-card:hover { border-color: var(--border-lit); transform: translateY(-2px); }
 .notif-icon { font-size: 1.6rem; margin-right: 18px; display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: var(--surface); border: 1px solid var(--border); border-radius: 50%; }
@@ -300,32 +299,40 @@ meses_pt = {1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6:
 
 # ── FUNÇÕES DE LATE FUSION LOCAL (PARA OS SLIDERS FUNCIONAREM) ──
 def calcular_late_fusion_local(row_or_dict):
-    """Refaz a Late Fusion baseando-se nos valores brutos e na Calibração atual do Dashboard. Apenas suporta Fruta Climatérica / Não Climatérica em estado Verde ou Senescência."""
+    """Refaz a Late Fusion baseando-se nos valores brutos e na Calibração atual do Dashboard. Apenas suporta Fruta Climatérica / Não Climatérica em estado Verde ou Senescência, retendo a fruta."""
     label = str(row_or_dict.get('label_camara', row_or_dict.get('classe_dominante', 'desconhecido'))).lower()
     conf = float(row_or_dict.get('confianca', 1.0))
     voc = float(row_or_dict.get('voc_gas', 0.0))
     
-    fruto = "desconhecido"
-    if any(x in label for x in ["banana", "maca", "macã", "apple"]):
-        fruto = "fruta_climatérica"
+    fruto_especifico = "desconhecido"
+    categoria = "desconhecido"
+    
+    # Identificar fruta específica e categoria fenomenológica
+    if "banana" in label:
+        fruto_especifico = "banana"
+        categoria = "climaterica"
+    elif any(x in label for x in ["maca", "macã", "apple"]):
+        fruto_especifico = "maçã"
+        categoria = "climaterica"
     elif "laranja" in label:
-        fruto = "fruta_não_climatérica"
+        fruto_especifico = "laranja"
+        categoria = "nao_climaterica"
             
     t = st.session_state.thresholds
     clim_limiar = t.get("clim_limiar", 28500)
     nclim_limiar = t.get("nclim_limiar", 28500)
     
     nicla_state = "desconhecido"
-    if fruto == "fruta_climatérica":
+    if categoria == "climaterica":
         if voc > clim_limiar: nicla_state = "verde"
         else: nicla_state = "senescência"
-    elif fruto == "fruta_não_climatérica":
+    elif categoria == "nao_climaterica":
         if voc > nclim_limiar: nicla_state = "verde"
         else: nicla_state = "senescência"
         
-    classe_final = f"{fruto}_{nicla_state}" if fruto != "desconhecido" else "desconhecido"
+    classe_final = f"{fruto_especifico}_{nicla_state}" if fruto_especifico != "desconhecido" else "desconhecido"
 
-    if conf < 0.60 and fruto != "desconhecido":
+    if conf < 0.60 and fruto_especifico != "desconhecido":
         return classe_final, "VOC OVERRIDE ⚡"
     else:
         return classe_final, "VISÃO + VOC 👁️"
@@ -338,7 +345,7 @@ def processar_decisao(classe_fused):
     if "desconhecido" in c:
         return ("DESCONHECIDO", "#8BA0BC", "AGUARDAR DADOS", "warning")
         
-    is_clim = "não_climatérica" not in c
+    is_clim = any(f in c for f in ["maçã", "maca", "banana", "apple"])
     
     if "verde" in c or "fresc" in c:
         return ("VERDE / FRESCA", "#00E5B4", "PRATELEIRA", "success")
@@ -576,7 +583,7 @@ else:
                 """, unsafe_allow_html=True)
 
             with col_g:
-                is_clim = "não_climatérica" not in decisao_final.lower()
+                is_clim = any(f in decisao_final.lower() for f in ["maçã", "maca", "banana", "apple"])
                 limiar_atual = thresholds.get("clim_limiar", 28500) if is_clim else thresholds.get("nclim_limiar", 28500)
 
                 # Gráfico ajustado (19kohm a 38kohm), verde/senescência apenas
