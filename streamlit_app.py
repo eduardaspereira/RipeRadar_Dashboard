@@ -735,40 +735,37 @@ else:
                             """, unsafe_allow_html=True)
 
                             for fruta_id, g_fruta in grupo_dia.groupby("classe_dominante"):
-                                g_fruta  = g_fruta.sort_values("_time")
-                                pior     = g_fruta.sort_values("voc_gas").iloc[0]
-                                voc_med  = g_fruta["voc_gas"].mean()
-                                temp_med = g_fruta["temp"].mean() if 'temp' in g_fruta.columns else 0.0
-                                cor_ev   = pior["cor"]
-                                trend    = "↘ A degradar" if g_fruta["voc_gas"].iloc[-1] < g_fruta["voc_gas"].iloc[0] else "↗ Estável"
-                                trend_c  = "#FF4455" if "degradar" in trend else "#00E5B4"
+                                # Ordena para mostrar as leituras mais recentes primeiro
+                                g_fruta = g_fruta.sort_values("_time", ascending=False)
+                                
+                                # Cria uma div individual para CADA medição daquela fruta
+                                for idx, row in g_fruta.iterrows():
+                                    hora_local = row["_time"].tz_convert('Europe/Lisbon').strftime('%H:%M:%S')
+                                    cor_ev = row["cor"]
+                                    temp_val = row["temp"] if 'temp' in row else 0.0
 
-                                # Nova secção gerada dinamicamente com as horas precisas de cada registo
-                                lista_horas_html = "".join([f"<span style='background:rgba(232,238,248,0.05); padding:2px 6px; border-radius:4px; font-family:var(--mono); color:var(--txt); font-size:0.75rem;'>⏱️ {t.tz_convert('Europe/Lisbon').strftime('%H:%M:%S')}</span> " for t in g_fruta["_time"]])
-
-                                st.markdown(f"""
-                                <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;">
-                                    <div style="display:flex;justify-content:space-between;align-items:center;margin-bottom:10px;">
-                                        <div>
+                                    st.markdown(f"""
+                                    <div style="background:var(--surface2);border:1px solid var(--border);border-radius:8px;padding:14px 16px;margin-bottom:10px;position:relative;">
+                                        <div style="position:absolute;top:14px;right:16px;font-family:var(--mono);font-size:0.75rem;color:var(--txt-muted);">
+                                            ⏱️ {hora_local}
+                                        </div>
+                                        
+                                        <div style="margin-bottom:10px;">
                                             <span style="font-family:var(--mono);font-size:0.68rem;color:var(--txt-muted);">PRODUTO&nbsp;</span>
                                             <span style="font-family:var(--mono);font-size:0.82rem;color:var(--txt);font-weight:700;text-transform:uppercase;">{formatar_nome(fruta_id)}</span>
                                         </div>
-                                        <span style="font-family:var(--mono);font-size:0.72rem;color:{trend_c};">{trend}</span>
+                                        
+                                        <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
+                                            <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{row['estado']}</span>
+                                        </div>
+                                        
+                                        <div style="display:flex;gap:20px;font-size:0.82rem;color:var(--txt-muted);flex-wrap:wrap;">
+                                            <span>VOC Detetado: <span style="font-family:var(--mono);color:var(--txt);">{row['voc_gas']/1000:.2f} kΩ</span></span>
+                                            <span>Temp: <span style="font-family:var(--mono);color:var(--txt);">{temp_val:.1f} °C</span></span>
+                                            <span>Ação exigida: <strong style="color:{cor_ev};">{row['acao']}</strong></span>
+                                        </div>
                                     </div>
-                                    <div style="display:flex;gap:12px;align-items:center;margin-bottom:8px;flex-wrap:wrap;">
-                                        <span style="font-weight:700;color:{cor_ev};font-size:0.95rem;">{pior['estado']}</span>
-                                    </div>
-                                    <div style="margin-bottom:12px;">
-                                        <div style="font-size:0.68rem;color:var(--txt-muted);font-family:var(--mono);margin-bottom:4px;text-transform:uppercase;">Horas dos Registos:</div>
-                                        <div style="display:flex;gap:6px;flex-wrap:wrap;">{lista_horas_html}</div>
-                                    </div>
-                                    <div style="display:flex;gap:20px;font-size:0.82rem;color:var(--txt-muted);flex-wrap:wrap;">
-                                        <span>VOC médio diário: <span style="font-family:var(--mono);color:var(--txt);">{voc_med/1000:.2f} kΩ</span></span>
-                                        <span>Temp média: <span style="font-family:var(--mono);color:var(--txt);">{temp_med:.1f} °C</span></span>
-                                        <span>Ação exigida: <strong style="color:{cor_ev};">{pior['acao']}</strong></span>
-                                    </div>
-                                </div>
-                                """, unsafe_allow_html=True)
+                                    """, unsafe_allow_html=True)
 
                             st.markdown("</div></div>", unsafe_allow_html=True)
                         st.markdown('</div>', unsafe_allow_html=True)
