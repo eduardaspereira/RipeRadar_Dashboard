@@ -77,7 +77,7 @@ def verificar_login_rfid():
         pass 
 
 def fetch_ultima_reposicao():
-    """Vai à base de dados procurar a que horas foi passada a Tag de Nova Carga (Qualquer uma)"""
+    """Vai à base de dados procurar a que horas foi passada a Tag de Nova Carga"""
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
         query = f'''
@@ -91,20 +91,20 @@ def fetch_ultima_reposicao():
         result = client.query_api().query(query)
         for table in result:
             for record in table.records:
-                return record.get_time() # Retorna a data/hora exata do scan
+                return record.get_time()
         return None
     except:
         return None
 
 def fetch_logs_operadores():
-    """Vai buscar os últimos registos de login e operações RFID"""
+    """Vai buscar os últimos registos brutos de login e operações RFID (Sem Pivot para não perder dados)"""
     try:
         client = InfluxDBClient(url=INFLUX_URL, token=INFLUX_TOKEN, org=INFLUX_ORG)
         query = f'''
         from(bucket: "{INFLUX_BUCKET}")
           |> range(start: -7d)
           |> filter(fn: (r) => r["_measurement"] == "rfid_login" or r["_measurement"] == "rfid_operacoes")
-          |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")
+          |> keep(columns: ["_time", "_measurement", "_value"])
           |> sort(columns: ["_time"], desc: true)
         '''
         df = client.query_api().query_data_frame(query)
@@ -190,15 +190,16 @@ h1,h2,h3,h4 { font-family: var(--sans); }
 .section-header h3 { font-size: 1rem; font-weight: 600; color: var(--txt); margin: 0; letter-spacing: 0.3px; }
 .section-divider { flex: 1; height: 1px; background: var(--border); }
 
-.tl-wrap { position: relative; padding-left: 28px; }
-.tl-wrap::before { content: ''; position: absolute; left: 7px; top: 8px; bottom: 0; width: 1px; background: var(--border); }
-.tl-item { position: relative; margin-bottom: 20px; }
-.tl-dot  { position: absolute; left: -24px; top: 5px; width: 14px; height: 14px; border-radius: 50%; border: 2px solid var(--accent); background: var(--bg); box-shadow: 0 0 8px rgba(0,229,180,0.3); }
-.tl-dot.warn   { border-color: var(--warn);   box-shadow: 0 0 8px rgba(255,184,0,0.3); }
-.tl-dot.danger { border-color: var(--danger); box-shadow: 0 0 8px rgba(255,68,85,0.3); }
-.tl-time { font-family: var(--mono); font-size: 0.72rem; color: var(--txt-muted); margin-bottom: 6px; letter-spacing: 1px; }
-.tl-body { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; }
-.tl-badge { display: inline-flex; align-items: center; gap: 5px; padding: 3px 10px; border-radius: 999px; font-family: var(--mono); font-size: 0.68rem; font-weight: 700; letter-spacing: 0.5px; border: 1px solid; margin-left: 8px; }
+/* Novos estilos para os Notif-Cards (Feed de Logs) */
+.notif-card { display: flex; align-items: center; background: var(--surface2); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; margin-bottom: 12px; transition: border-color 0.2s, transform 0.2s; }
+.notif-card:hover { border-color: var(--border-lit); transform: translateY(-2px); }
+.notif-icon { font-size: 1.6rem; margin-right: 18px; display: flex; align-items: center; justify-content: center; width: 50px; height: 50px; background: var(--surface); border: 1px solid var(--border); border-radius: 50%; }
+.notif-content { flex: 1; }
+.notif-title { font-size: 1.05rem; font-weight: 700; color: var(--txt); margin-bottom: 4px; }
+.notif-sub { font-family: var(--mono); font-size: 0.85rem; color: var(--txt-muted); }
+.notif-meta { text-align: right; }
+.notif-time { font-family: var(--mono); font-size: 0.75rem; color: var(--txt-sub); margin-bottom: 8px; font-weight: 700; }
+.notif-badge { display: inline-block; padding: 4px 10px; border-radius: 6px; font-family: var(--mono); font-size: 0.65rem; font-weight: 700; letter-spacing: 1px; border: 1px solid; }
 
 .kpi-row { display: flex; gap: 16px; margin-bottom: 28px; flex-wrap: wrap; }
 .kpi-card { flex: 1; min-width: 130px; background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; text-align: center; }
@@ -296,7 +297,6 @@ def fetch_live_data():
         df = client.query_api().query_data_frame(query)
         if isinstance(df, list): df = pd.concat(df)
         if isinstance(df, pd.DataFrame) and not df.empty:
-            # Força tudo a ficar na hora local de Portugal para garantir cálculos corretos
             df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
             return df
         return pd.DataFrame()
@@ -707,7 +707,6 @@ else:
                                 temp_med = g_fruta["temp"].mean() if 'temp' in g_fruta.columns else 0.0
                                 cor_ev   = pior["cor"]
                                 
-                                # Lógica atualizada: Apenas a hora com a cor do estado atual
                                 ultima_leitura = g_fruta.iloc[-1]
                                 hora_ultima = ultima_leitura["_time"].strftime("%H:%M")
                                 
@@ -799,46 +798,53 @@ else:
             if df_logs.empty:
                 st.info("Sem registos de atividades nos últimos 7 dias.")
             else:
-                # Usa a estrutura da timeline com as respetivas cores de destaque para ficar muito mais apelativo
-                st.markdown('<div class="tl-wrap">', unsafe_allow_html=True)
                 for _, row in df_logs.iterrows():
+                    medida = row.get('_measurement')
+                    valor = str(row.get('_value', ''))
                     data_str = row['_time'].strftime("%d/%m/%Y")
                     hora_str = row['_time'].strftime("%H:%M:%S")
                     
-                    if row.get('_measurement') == 'rfid_login':
-                        acao = "🔐 Login de Utilizador"
-                        detalhe = str(row.get('user_id', '')).title()
-                        cor = "var(--accent2)" # Azul
-                        dot_class = ""
-                    else:
-                        operacao_raw = row.get('acao', '')
-                        if operacao_raw == "carga_climaterica":
-                            acao = "📦 Registo de Nova Carga"
+                    if medida == 'rfid_login':
+                        acao = "Login de Utilizador"
+                        detalhe = valor.title()
+                        icon = "👤"
+                        tag = "ACESSO"
+                        color = "var(--accent2)" # Azul
+                    elif medida == 'rfid_operacoes':
+                        if valor == "carga_climaterica":
+                            acao = "Registo de Nova Carga"
                             detalhe = "Frutos Climatéricos"
-                            cor = "var(--warn)" # Laranja/Amarelo
-                            dot_class = "warn"
-                        elif operacao_raw == "carga_nao_climaterica":
-                            acao = "📦 Registo de Nova Carga"
+                            icon = "📦"
+                            tag = "OPERAÇÃO"
+                            color = "var(--warn)" # Amarelo/Laranja
+                        elif valor == "carga_nao_climaterica":
+                            acao = "Registo de Nova Carga"
                             detalhe = "Frutos Não Climatéricos"
-                            cor = "var(--success)" # Verde
-                            dot_class = ""
+                            icon = "📦"
+                            tag = "OPERAÇÃO"
+                            color = "var(--success)" # Verde
                         else:
-                            acao = "⚙️ Operação do Sistema"
-                            detalhe = operacao_raw
-                            cor = "var(--txt-muted)" # Cinzento
-                            dot_class = ""
+                            acao = "Operação do Sistema"
+                            detalhe = valor
+                            icon = "⚙️"
+                            tag = "SISTEMA"
+                            color = "var(--txt-muted)" # Cinzento
+                    else:
+                        continue
                             
                     st.markdown(f"""
-                    <div class="tl-item">
-                        <div class="tl-dot {dot_class}" style="border-color:{cor};"></div>
-                        <div class="tl-time">📅 {data_str} <span style="margin: 0 6px;">•</span> 🕒 {hora_str}</div>
-                        <div class="tl-body" style="padding: 12px 16px;">
-                            <div style="font-weight:700; color:{cor}; margin-bottom:4px; font-size: 0.95rem;">{acao}</div>
-                            <div style="font-size:0.85rem; color:var(--txt); font-family:var(--mono);">{detalhe}</div>
+                    <div class="notif-card">
+                        <div class="notif-icon">{icon}</div>
+                        <div class="notif-content">
+                            <div class="notif-title">{acao}</div>
+                            <div class="notif-sub">{detalhe}</div>
+                        </div>
+                        <div class="notif-meta">
+                            <div class="notif-time">{data_str} às {hora_str}</div>
+                            <div class="notif-badge" style="color:{color}; border-color:{color}40; background:{color}10;">{tag}</div>
                         </div>
                     </div>
                     """, unsafe_allow_html=True)
-                st.markdown('</div>', unsafe_allow_html=True)
 
     # ── AUTO REFRESH DASHBOARD ─────────────────────────────────
     if auto_refresh:
