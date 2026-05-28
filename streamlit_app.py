@@ -309,9 +309,14 @@ def fetch_live_data():
                   f' |> filter(fn: (r) => r["_measurement"] == "mqtt_consumer")'
                   f' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")')
         df = client.query_api().query_data_frame(query)
-        if isinstance(df, list): df = pd.concat(df)
+        
+        # Ignorar o index antigo ajuda a evitar conflitos na concatenação
+        if isinstance(df, list): df = pd.concat(df, ignore_index=True)
+        
         if isinstance(df, pd.DataFrame) and not df.empty:
             df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
+            # CORREÇÃO: Forçar a ordenação cronológica crescente
+            df = df.sort_values(by='_time', ascending=True).reset_index(drop=True)
             return df
         return pd.DataFrame()
     except:
@@ -325,9 +330,13 @@ def fetch_history_data(dias):
                   f' |> filter(fn: (r) => r["_measurement"] == "mqtt_consumer")'
                   f' |> pivot(rowKey:["_time"], columnKey: ["_field"], valueColumn: "_value")')
         df = client.query_api().query_data_frame(query)
-        if isinstance(df, list): df = pd.concat(df)
+        
+        if isinstance(df, list): df = pd.concat(df, ignore_index=True)
+        
         if isinstance(df, pd.DataFrame) and not df.empty:
             df['_time'] = pd.to_datetime(df['_time']).dt.tz_convert('Europe/Lisbon')
+            # CORREÇÃO: Forçar a ordenação cronológica crescente
+            df = df.sort_values(by='_time', ascending=True).reset_index(drop=True)
             return df
         return pd.DataFrame()
     except:
