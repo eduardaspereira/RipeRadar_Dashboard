@@ -15,8 +15,7 @@ st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide", i
 
 # --- 2. GESTOR DE COOKIES ---
 cookie_manager = stx.CookieManager(key="cookie_manager_global")
-if cookie_manager.get_all() is None:
-    st.stop() 
+#if cookie_manager.get_all() is None:
 
 is_terminal = str(cookie_manager.get(cookie="terminal_loja")).lower() == "true"
 
