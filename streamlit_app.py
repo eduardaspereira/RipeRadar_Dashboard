@@ -15,11 +15,8 @@ st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide", i
 
 # --- 2. GESTOR DE COOKIES ---
 cookie_manager = stx.CookieManager(key="cookie_manager_global")
-try:
-    if cookie_manager.get_all() is None:
-        st.warning("Cookie manager não inicializado — a app continua em modo debug.")
-except Exception as e:
-    st.warning(f"Cookie manager error: {e} — a app continua em modo debug.")
+if cookie_manager.get_all() is None:
+    st.stop() 
 
 is_terminal = str(cookie_manager.get(cookie="terminal_loja")).lower() == "true"
 
