@@ -300,8 +300,18 @@ meses_pt = {1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6:
 # ── FUNÇÕES DE LATE FUSION LOCAL (PARA OS SLIDERS FUNCIONAREM) ──
 def calcular_late_fusion_local(row_or_dict):
     """Refaz a Late Fusion baseando-se nos valores brutos e na Calibração atual do Dashboard. Apenas suporta Fruta Climatérica / Não Climatérica em estado Fresca ou Senescência, retendo a fruta."""
-    label = str(row_or_dict.get('label_camara', row_or_dict.get('classe_dominante', 'desconhecido'))).lower()
+    
+    # 1. VERIFICAÇÃO DE OVERRIDE MANUAL
+    label_camara_bruto = str(row_or_dict.get('label_camara', '')).upper()
+    classe_dom = str(row_or_dict.get('classe_dominante', 'desconhecido')).lower()
     conf = float(row_or_dict.get('confianca', 1.0))
+    
+    if label_camara_bruto == "FORCADO_MANUALMENTE":
+        # Se foi forçado no terminal, não recalcula nada. Devolve o que veio.
+        return classe_dom, "OVERRIDE MANUAL"
+
+    # 2. FLUXO NORMAL (Sem Override)
+    label = str(row_or_dict.get('label_camara', classe_dom)).lower()
     voc = float(row_or_dict.get('voc_gas', 0.0))
     
     fruto_especifico = "desconhecido"
@@ -336,7 +346,7 @@ def calcular_late_fusion_local(row_or_dict):
         return classe_final, "VOC OVERRIDE"
     else:
         return classe_final, "VISÃO + VOC"
-
+        
 def processar_decisao(classe_fused):
     """
     Retorna os textos e cores FINAIS da interface baseando-se no binómio fresca/senescência.
