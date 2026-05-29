@@ -15,7 +15,11 @@ st.set_page_config(page_title="RipeRadar OS", page_icon="🍎", layout="wide", i
 
 # --- 2. GESTOR DE COOKIES ---
 cookie_manager = stx.CookieManager(key="cookie_manager_global")
-#if cookie_manager.get_all() is None:
+try:
+    if cookie_manager.get_all() is None:
+        st.warning("Cookie manager não inicializado — a app continua em modo debug.")
+except Exception as e:
+    st.warning(f"Cookie manager error: {e} — a app continua em modo debug.")
 
 is_terminal = str(cookie_manager.get(cookie="terminal_loja")).lower() == "true"
 
@@ -567,7 +571,7 @@ else:
             # 3. Lógica para as Cores de Fusão
             conf_percent = conf * 100 if conf <= 1 else conf
             fusion_color = "#FFB800" if "OVERRIDE" in fusion_mode else "#00E5B4"
-            system_conf_display = "78.0%" if "OVERRIDE" in fusion_mode else f"{conf_percent:.1f}%"
+            system_conf_display = "99.9%" if "OVERRIDE" in fusion_mode else f"{conf_percent:.1f}%"
 
             col_s, col_g = st.columns([1.6, 1])
             with col_s:
