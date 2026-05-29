@@ -299,54 +299,56 @@ meses_pt = {1: "Janeiro", 2: "Fevereiro", 3: "Março", 4: "Abril", 5: "Maio", 6:
 
 # ── FUNÇÕES DE LATE FUSION LOCAL (PARA OS SLIDERS FUNCIONAREM) ──
 def calcular_late_fusion_local(row_or_dict):
-    """Refaz a Late Fusion baseando-se nos valores brutos e na Calibração atual do Dashboard. Apenas suporta Fruta Climatérica / Não Climatérica em estado Fresca ou Senescência, retendo a fruta."""
+    """Refaz a Late Fusion baseando-se nos valores brutos e na Calibração atual do Dashboard."""
     
-    # 1. VERIFICAÇÃO DE OVERRIDE MANUAL
+    # --- 1. OVERRIDE MANUAL (Prioridade Máxima) ---
     label_camara_bruto = str(row_or_dict.get('label_camara', '')).upper()
     classe_dom = str(row_or_dict.get('classe_dominante', 'desconhecido')).lower()
     conf = float(row_or_dict.get('confianca', 1.0))
     
     if label_camara_bruto == "FORCADO_MANUALMENTE":
-        # Se foi forçado no terminal, não recalcula nada. Devolve o que veio.
+        # Retorna imediatamente o que foi injetado pelo terminal
         return classe_dom, "OVERRIDE MANUAL"
 
-    # 2. FLUXO NORMAL (Sem Override)
-    label = str(row_or_dict.get('label_camara', classe_dom)).lower()
+    # --- 2. FLUXO NORMAL DA CÂMARA ---
+    # Resgata a label original enviada pela câmara (antes da fusão do gateway)
+    label_original = str(row_or_dict.get('label_camara', classe_dom)).lower()
     voc = float(row_or_dict.get('voc_gas', 0.0))
     
     fruto_especifico = "desconhecido"
     categoria = "desconhecido"
     
-    # Identificar fruta específica e categoria fenomenológica
-    if "banana" in label:
+    # Identificar fruta e a sua categoria
+    if "banana" in label_original:
         fruto_especifico = "banana"
         categoria = "climaterica"
-    elif any(x in label for x in ["maca", "macã", "apple"]):
+    elif any(x in label_original for x in ["maca", "macã", "apple"]):
         fruto_especifico = "maçã"
         categoria = "climaterica"
-    elif "laranja" in label:
+    elif "laranja" in label_original:
         fruto_especifico = "laranja"
         categoria = "nao_climaterica"
             
+    # --- 3. LÓGICA DO SENSOR DE GASES (Sliders do Dashboard) ---
     t = st.session_state.thresholds
     clim_limiar = t.get("clim_limiar", 28500)
     nclim_limiar = t.get("nclim_limiar", 28500)
     
     nicla_state = "desconhecido"
     if categoria == "climaterica":
-        if voc > clim_limiar: nicla_state = "fresca"
-        else: nicla_state = "senescência"
+        nicla_state = "fresca" if voc > clim_limiar else "senescência"
     elif categoria == "nao_climaterica":
-        if voc > nclim_limiar: nicla_state = "fresca"
-        else: nicla_state = "senescência"
+        nicla_state = "fresca" if voc > nclim_limiar else "senescência"
         
-    classe_final = f"{fruto_especifico}_{nicla_state}" if fruto_especifico != "desconhecido" else "desconhecido"
+    estado_pelo_gas = f"{fruto_especifico}_{nicla_state}" if fruto_especifico != "desconhecido" else "desconhecido"
 
+    # --- 4. DECISÃO FINAL DE FUSÃO ---
+    # Aqui o sensor de gases dá, de facto, override à câmara se a confiança for baixa
     if conf < 0.60 and fruto_especifico != "desconhecido":
-        return classe_final, "VOC OVERRIDE"
+        return estado_pelo_gas, "VOC OVERRIDE"
     else:
-        return classe_final, "VISÃO + VOC"
-        
+        # Se a confiança é alta (>= 60%), confiamos na visão
+        return label_original, "VISÃO + VOC"        
 def processar_decisao(classe_fused):
     """
     Retorna os textos e cores FINAIS da interface baseando-se no binómio fresca/senescência.
